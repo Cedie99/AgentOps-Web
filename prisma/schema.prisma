@@ -1,0 +1,334 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Unified user roles - all in one enum
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  SURVEYOR
+  SALES
+  DELIVERY
+  COLLECTOR
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum AgentStatus {
+  AVAILABLE
+  ON_FIELD
+  OFF_DUTY
+}
+
+enum StoreStatus {
+  PENDING
+  SURVEYED
+  SALES_VISITED
+  DELIVERED
+  COLLECTED
+}
+
+enum CustomerType {
+  PROSPECT
+  NEW
+  EXISTING
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+}
+
+enum PaymentStatus {
+  FULL
+  PARTIAL
+  CREDIT
+}
+
+enum AnnouncementPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// Unified User model (combines old User and Agent tables)
+model User {
+  id     Int        @id @default(autoincrement())
+  email  String     @unique
+  name   String
+  role   UserRole   @default(SALES)
+  status UserStatus @default(ACTIVE)
+  avatar String?
+
+  // Web dashboard fields
+  last_login DateTime @default(now())
+
+  // Mobile/Field agent fields (nullable for web-only users)
+  agent_status        AgentStatus? @map("agent_status")
+  vehicle_id          Int?         @map("vehicle_id")
+  current_lat         Float?       @map("current_lat")
+  current_lng         Float?       @map("current_lng")
+  last_seen           DateTime?    @map("last_seen")
+  active_tasks_count  Int          @default(0) @map("active_tasks_count")
+
+  // Timestamps
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  vehicle           Vehicle?         @relation(fields: [vehicle_id], references: [id])
+  attendance_records Attendance[]
+  timeline_events   TimelineEvent[]
+  visit_logs        VisitLog[]
+  store_assignments Store[]
+  fuel_entries      FuelEntry[]
+  announcements     Announcement[]
+  surveyor_surveys  Survey[]         @relation("SurveyorSurveys")
+  assigned_surveys  Survey[]         @relation("AssignedSurveys")
+  gps_tracking_points GpsTrackingPoint[]
+
+  @@index([email])
+  @@index([role])
+  @@index([vehicle_id])
+  @@map("users")
+}
+
+model Vehicle {
+  id          Int           @id @default(autoincrement())
+  model       String
+  plate       String        @unique
+  total_km    Float         @default(0) @map("total_km")
+  fuel_rate   Float         @map("fuel_rate")
+  status      VehicleStatus @default(AVAILABLE)
+  assigned_to String?       @map("assigned_to")
+  created_at  DateTime      @default(now()) @map("created_at")
+  updated_at  DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  users           User[]
+  fuel_entries    FuelEntry[]
+  timeline_events TimelineEvent[]
+
+  @@index([plate])
+  @@index([assigned_to])
+  @@map("vehicles")
+}
+
+model Store {
+  id                 Int          @id @default(autoincrement())
+  name               String
+  address            String
+  lat                Float
+  lng                Float
+  status             StoreStatus  @default(PENDING)
+  customer_type      CustomerType @default(PROSPECT) @map("customer_type")
+  order_value        Float?       @map("order_value")
+  collection_amount  Float?       @map("collection_amount")
+  last_updated       DateTime     @default(now()) @map("last_updated")
+  created_by         Int?         @map("created_by")
+  created_at         DateTime     @default(now()) @map("created_at")
+  updated_at         DateTime     @updatedAt @map("updated_at")
+
+  // Current Assignment
+  current_user_id   Int?      @map("current_user_id")
+  current_user_name String?   @map("current_user_name")
+  current_role      UserRole? @map("current_role")
+  assigned_at       DateTime? @map("assigned_at")
+
+  // Relations
+  current_user User?           @relation(fields: [current_user_id], references: [id])
+  timeline     TimelineEvent[]
+  visit_history VisitLog[]
+
+  @@index([status])
+  @@index([customer_type])
+  @@index([current_user_id])
+  @@map("stores")
+}
+
+model TimelineEvent {
+  id                  Int           @id @default(autoincrement())
+  store_id            Int           @map("store_id")
+  user_id             Int           @map("user_id")
+  user_name           String        @map("user_name")
+  role                UserRole
+  vehicle_id          Int           @map("vehicle_id")
+  status              StoreStatus
+  timestamp           DateTime      @default(now())
+  note                String?
+  photo_url           String?       @map("photo_url")
+  payment_status      PaymentStatus? @map("payment_status")
+  amount_collected    Float?        @map("amount_collected")
+  total_order_amount  Float?        @map("total_order_amount")
+  created_at          DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  store   Store   @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [user_id], references: [id])
+  vehicle Vehicle @relation(fields: [vehicle_id], references: [id])
+
+  @@index([store_id])
+  @@index([user_id])
+  @@index([timestamp])
+  @@map("timeline_events")
+}
+
+model VisitLog {
+  id                 Int      @id @default(autoincrement())
+  store_id           Int      @map("store_id")
+  user_id            Int      @map("user_id")
+  user_name          String   @map("user_name")
+  timestamp          DateTime @default(now())
+  outcome            String
+  location_verified  Boolean  @default(false) @map("location_verified")
+  notes              String?
+  created_at         DateTime @default(now()) @map("created_at")
+
+  // Relations
+  store Store @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [user_id], references: [id])
+
+  @@index([store_id])
+  @@index([user_id])
+  @@index([timestamp])
+  @@map("visit_logs")
+}
+
+model Attendance {
+  id              Int       @id @default(autoincrement())
+  user_id         Int       @map("user_id")
+  work_date       String    @map("work_date")           // YYYY-MM-DD format
+  clock_in_time   DateTime  @map("clock_in_time")
+  clock_out_time  DateTime? @map("clock_out_time")
+  clock_in_lat    Float?    @map("clock_in_lat")
+  clock_in_long   Float?    @map("clock_in_long")
+  clock_out_lat   Float?    @map("clock_out_lat")
+  clock_out_long  Float?    @map("clock_out_long")
+  selfie_url      String?   @map("selfie_url")
+  duration        String?
+  total_distance  Float?    @map("total_distance")      // Total km traveled during shift
+  created_at      DateTime  @default(now()) @map("created_at")
+  updated_at      DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user            User                @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  gps_points      GpsTrackingPoint[]
+
+  @@index([user_id])
+  @@index([work_date])
+  @@map("attendance")
+}
+
+model FuelEntry {
+  id         Int      @id @default(autoincrement())
+  vehicle_id Int      @map("vehicle_id")
+  liters     Float
+  cost       Float
+  date       DateTime @default(now())
+  logged_by  String   @map("logged_by")
+  user_id    Int      @map("user_id")
+  created_at DateTime @default(now()) @map("created_at")
+
+  // Relations
+  vehicle Vehicle @relation(fields: [vehicle_id], references: [id])
+  user    User    @relation(fields: [user_id], references: [id])
+
+  @@index([vehicle_id])
+  @@index([user_id])
+  @@index([date])
+  @@map("fuel_entries")
+}
+
+model Announcement {
+  id         Int                    @id @default(autoincrement())
+  title      String
+  content    String
+  target     String                 @default("All")
+  priority   AnnouncementPriority   @default(MEDIUM)
+  timestamp  DateTime               @default(now())
+  expires_at DateTime?              @map("expires_at")
+  created_by Int                    @map("created_by")
+  created_at DateTime               @default(now()) @map("created_at")
+  updated_at DateTime               @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [created_by], references: [id])
+
+  @@index([created_by])
+  @@index([timestamp])
+  @@map("announcements")
+}
+
+model Survey {
+  id                  Int       @id @default(autoincrement())
+  store_name          String    @map("store_name")
+  owner_name          String?   @map("owner_name")
+  contact_number      String    @map("contact_number")
+  contact_person      String?   @map("contact_person")
+  current_supplier    String?   @map("current_supplier")
+  address             String
+  address_line1       String    @map("address_line1")
+  address_line2       String    @map("address_line2")
+  address_line3       String?   @map("address_line3")
+  city                String
+  province            String
+  landmark            String?
+  remarks             String?
+  gps_latitude        Float     @map("gps_latitude")
+  gps_longitude       Float     @map("gps_longitude")
+  store_photo_url     String?   @map("store_photo_url")
+  is_platinum_client  Boolean   @default(false) @map("is_platinum_client")
+  surveyor_id         Int       @map("surveyor_id")
+  surveyor_name       String    @map("surveyor_name")
+  captured_at         DateTime  @default(now()) @map("captured_at")
+  created_at          DateTime  @default(now()) @map("created_at")
+  updated_at          DateTime  @updatedAt @map("updated_at")
+
+  // Assignment fields
+  assigned_to_id      Int?      @map("assigned_to_id")
+  assigned_to_name    String?   @map("assigned_to_name")
+  assigned_at         DateTime? @map("assigned_at")
+
+  // Relations
+  surveyor    User  @relation("SurveyorSurveys", fields: [surveyor_id], references: [id])
+  assigned_to User? @relation("AssignedSurveys", fields: [assigned_to_id], references: [id])
+
+  @@index([surveyor_id])
+  @@index([assigned_to_id])
+  @@index([created_at])
+  @@index([province])
+  @@index([city])
+  @@map("surveys")
+}
+
+model GpsTrackingPoint {
+  id              Int       @id @default(autoincrement())
+  user_id         Int       @map("user_id")
+  attendance_id   Int?      @map("attendance_id")
+  latitude        Float
+  longitude       Float
+  accuracy        Float?                                // GPS accuracy in meters
+  timestamp       DateTime  @default(now())
+  speed           Float?                                // Speed in m/s (if available)
+  heading         Float?                                // Direction in degrees (0-360)
+  synced_at       DateTime? @map("synced_at")          // When synced from mobile
+  created_at      DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  user            User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  attendance      Attendance? @relation(fields: [attendance_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([attendance_id])
+  @@index([timestamp])
+  @@map("gps_tracking_points")
+}
