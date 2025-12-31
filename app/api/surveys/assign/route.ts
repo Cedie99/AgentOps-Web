@@ -52,6 +52,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get admin user ID
+    const adminUser = await prisma.user.findUnique({
+      where: { email: session.user.email! },
+      select: { id: true }
+    })
+
     // Update the survey with assignment
     const updatedSurvey = await prisma.survey.update({
       where: { id: surveyId },
@@ -79,6 +85,14 @@ export async function POST(request: NextRequest) {
         }
       }
     })
+
+    // Create survey_assignment record for mobile app tracking
+    await prisma.$executeRaw`
+      INSERT INTO survey_assignments (survey_id, sales_agent_id, assigned_by, status)
+      VALUES (${surveyId}, ${salesUser.id}, ${adminUser?.id}, 'ACTIVE')
+      ON CONFLICT (survey_id, sales_agent_id) DO UPDATE
+      SET assigned_at = CURRENT_TIMESTAMP, status = 'ACTIVE'
+    `
 
     return NextResponse.json({ survey: updatedSurvey })
   } catch (error: any) {

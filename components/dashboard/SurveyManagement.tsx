@@ -155,9 +155,9 @@ const SurveyManagement: React.FC = () => {
     try {
       const response = await fetch('/api/users')
       if (!response.ok) throw new Error('Failed to fetch users')
-      const users = await response.json()
+      const data = await response.json()
       // Filter only SALES role users
-      const sales = users.filter((u: any) => u.role === 'SALES')
+      const sales = (data.users || []).filter((u: any) => u.role === 'SALES')
       setSalesUsers(sales)
     } catch (err) {
       console.error('Error fetching sales users:', err)

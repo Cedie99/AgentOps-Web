@@ -6,15 +6,34 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const role = searchParams.get('role')
+    const roles = searchParams.get('roles')
     const status = searchParams.get('status')
 
     const where: any = {}
-    if (role) where.role = role
+
+    // Handle multiple roles (comma-separated)
+    if (roles) {
+      const roleArray = roles.split(',').map(r => r.trim())
+      where.role = { in: roleArray }
+    } else if (role) {
+      where.role = role
+    }
+
     if (status) where.status = status
 
     const users = await prisma.user.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+        avatar: true,
+        agent_status: true,
+        vehicle_id: true,
+        current_lat: true,
+        current_lng: true,
         vehicle: true,
         attendance_records: {
           orderBy: { work_date: 'desc' },
@@ -24,7 +43,7 @@ export async function GET(request: NextRequest) {
       orderBy: { name: 'asc' },
     })
 
-    return NextResponse.json(users)
+    return NextResponse.json({ users })
   } catch (error) {
     console.error('Error fetching users:', error)
     return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })

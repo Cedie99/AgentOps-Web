@@ -24,6 +24,8 @@ import {
   LogOut,
   User,
   FileText,
+  History,
+  Package,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -46,9 +48,11 @@ const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { id: 'stores', label: 'Store Ops', icon: StoreIcon, href: '/dashboard/stores' },
   { id: 'map', label: 'Live Map', icon: MapIcon, href: '/dashboard/map' },
+  { id: 'history', label: 'GPS History', icon: History, href: '/dashboard/tracking/history' },
   { id: 'surveyors', label: 'Surveyor Hub', icon: ClipboardCheck, href: '/dashboard/surveyors' },
   { id: 'surveys', label: 'Surveys', icon: FileText, href: '/dashboard/surveys' },
   { id: 'sales', label: 'Sales Hub', icon: ShoppingBag, href: '/dashboard/sales' },
+  { id: 'products', label: 'Products', icon: Package, href: '/dashboard/products' },
   { id: 'logistics', label: 'Logistics Hub', icon: PackageCheck, href: '/dashboard/logistics' },
   { id: 'audit', label: 'Audit Hub', icon: ShieldCheck, href: '/dashboard/audit' },
   { id: 'agents', label: 'Fleet Assignment', icon: Users, href: '/dashboard/agents' },

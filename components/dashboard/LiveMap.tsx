@@ -115,17 +115,19 @@ const LiveMap: React.FC = () => {
     );
   }, [selectedAgent]);
 
-  // Fetch live agents on mount and refresh every 30 seconds
+  // Fetch live agents on mount and refresh every 10 seconds for real-time updates
   useEffect(() => {
     fetchLiveAgents();
-    const interval = setInterval(fetchLiveAgents, 30000); // Refresh every 30s
+    const interval = setInterval(fetchLiveAgents, 10000); // Refresh every 10s for real-time
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch GPS routes when an agent is selected
+  // Fetch GPS routes when an agent is selected and refresh every 10 seconds
   useEffect(() => {
     if (selectedMapAgent) {
       fetchGpsRoute(selectedMapAgent);
+      const interval = setInterval(() => fetchGpsRoute(selectedMapAgent), 10000); // Refresh route every 10s
+      return () => clearInterval(interval);
     }
   }, [selectedMapAgent]);
 
@@ -168,12 +170,16 @@ const LiveMap: React.FC = () => {
       import('leaflet').then((L) => {
         setLeafletLoaded(true);
 
-        // Create custom icons
+        // Create custom icons with pulsing animation
         const agentMarker = L.divIcon({
           className: 'custom-agent-icon',
-          html: `<div class="w-10 h-10 bg-indigo-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                 </div>`,
+          html: `
+            <div class="relative">
+              <div class="absolute inset-0 w-10 h-10 bg-emerald-500 rounded-full animate-ping opacity-75"></div>
+              <div class="relative w-10 h-10 bg-emerald-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              </div>
+            </div>`,
           iconSize: [40, 40],
           iconAnchor: [20, 40],
         });
@@ -222,25 +228,15 @@ const LiveMap: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Live Operations Map</h1>
           <p className="text-slate-500 text-sm">Real-time GPS tracking and field output visualization.</p>
         </div>
-        <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
-          <button
-            onClick={() => { setMapView('all'); setSelectedMapAgent(null); }}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${mapView === 'all' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-          >
-            All Ops
-          </button>
-          <button
-            onClick={() => setMapView('agents')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${mapView === 'agents' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-          >
-            Agents
-          </button>
-          <button
-            onClick={() => setMapView('stores')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all uppercase tracking-wider ${mapView === 'stores' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-          >
-            Stores
-          </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+            <div className="relative">
+              <Activity className="w-4 h-4 text-emerald-600" />
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div>
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full"></div>
+            </div>
+            <span className="text-sm font-semibold text-emerald-700">Live - Auto-refresh every 10s</span>
+          </div>
         </div>
       </div>
 
@@ -260,7 +256,7 @@ const LiveMap: React.FC = () => {
               />
 
               {/* Render Store Markers */}
-              {(mapView === 'all' || mapView === 'stores') && MOCK_STORES.map((store) => {
+              {MOCK_STORES.map((store) => {
                 const isHighlighted = selectedAgent && relatedStores.some(s => s.id === store.id);
 
                 return (
@@ -290,7 +286,7 @@ const LiveMap: React.FC = () => {
               })}
 
               {/* Render Agent Markers */}
-              {(mapView === 'all' || mapView === 'agents') && liveAgents.map((agent) => {
+              {liveAgents.map((agent) => {
                 if (!agent.current_lat || !agent.current_lng) return null;
 
                 return (
@@ -319,9 +315,9 @@ const LiveMap: React.FC = () => {
                 <Polyline
                   positions={gpsRoutes[selectedMapAgent].map(point => [point.latitude, point.longitude])}
                   pathOptions={{
-                    color: '#10b981',
-                    weight: 4,
-                    opacity: 0.7,
+                    color: '#ef4444',
+                    weight: 6,
+                    opacity: 0.9,
                     lineJoin: 'round',
                     lineCap: 'round',
                   }}
@@ -343,7 +339,7 @@ const LiveMap: React.FC = () => {
           <div className="p-6 border-b border-slate-100">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tracking & Output</h3>
-              <Activity className="w-4 h-4 text-indigo-500" />
+              <Activity className="w-4 h-4 text-emerald-500" />
             </div>
 
             {/* Role Filter Tabs */}
@@ -351,7 +347,7 @@ const LiveMap: React.FC = () => {
               <button
                 onClick={() => setSelectedRole('ALL')}
                 className={`px-2 py-1.5 rounded text-[10px] font-bold uppercase tracking-wide transition-all ${
-                  selectedRole === 'ALL' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  selectedRole === 'ALL' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 All
@@ -359,7 +355,7 @@ const LiveMap: React.FC = () => {
               <button
                 onClick={() => setSelectedRole(MobileRole.SURVEYOR)}
                 className={`px-2 py-1.5 rounded text-[10px] font-bold uppercase tracking-wide transition-all ${
-                  selectedRole === MobileRole.SURVEYOR ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  selectedRole === MobileRole.SURVEYOR ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 Survey
@@ -367,7 +363,7 @@ const LiveMap: React.FC = () => {
               <button
                 onClick={() => setSelectedRole(MobileRole.SALES)}
                 className={`px-2 py-1.5 rounded text-[10px] font-bold uppercase tracking-wide transition-all ${
-                  selectedRole === MobileRole.SALES ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  selectedRole === MobileRole.SALES ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 Sales
@@ -377,7 +373,7 @@ const LiveMap: React.FC = () => {
               <button
                 onClick={() => setSelectedRole(MobileRole.DELIVERY)}
                 className={`px-2 py-1.5 rounded text-[10px] font-bold uppercase tracking-wide transition-all ${
-                  selectedRole === MobileRole.DELIVERY ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  selectedRole === MobileRole.DELIVERY ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 Delivery
@@ -385,7 +381,7 @@ const LiveMap: React.FC = () => {
               <button
                 onClick={() => setSelectedRole(MobileRole.COLLECTOR)}
                 className={`px-2 py-1.5 rounded text-[10px] font-bold uppercase tracking-wide transition-all ${
-                  selectedRole === MobileRole.COLLECTOR ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  selectedRole === MobileRole.COLLECTOR ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 Collect
@@ -399,7 +395,7 @@ const LiveMap: React.FC = () => {
                 placeholder="Find field agent..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
               />
             </div>
           </div>
@@ -411,14 +407,14 @@ const LiveMap: React.FC = () => {
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                   {selectedRole === 'ALL' ? 'All Agents' : selectedRole} Tracking
                 </p>
-                <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-bold uppercase">
+                <span className="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded font-bold uppercase">
                   {filteredAgents.length} {filteredAgents.length === 1 ? 'Agent' : 'Agents'}
                 </span>
               </div>
               <div className="space-y-2">
                 {loading ? (
                   <div className="p-5 bg-slate-50 rounded-2xl text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-2"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-2"></div>
                     <p className="text-[10px] text-slate-400 font-bold uppercase">Loading agents...</p>
                   </div>
                 ) : filteredAgents.length > 0 ? (
@@ -439,8 +435,8 @@ const LiveMap: React.FC = () => {
                         onClick={() => handleSelectAgent(agent)}
                         className={`w-full text-left p-3 rounded-2xl border transition-all group ${
                           selectedAgent?.id === agent.id
-                            ? 'bg-indigo-600 border-indigo-600 shadow-lg shadow-indigo-100'
-                            : 'bg-white border-slate-100 hover:border-indigo-200 hover:bg-slate-50'
+                            ? 'bg-emerald-600 border-emerald-600 shadow-lg shadow-emerald-100'
+                            : 'bg-white border-slate-100 hover:border-emerald-200 hover:bg-slate-50'
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -452,7 +448,7 @@ const LiveMap: React.FC = () => {
                               <p className={`text-xs font-bold leading-none ${selectedAgent?.id === agent.id ? 'text-white' : 'text-slate-800'}`}>
                                 {agent.name}
                               </p>
-                              <p className={`text-[9px] font-medium mt-1 ${selectedAgent?.id === agent.id ? 'text-indigo-100' : 'text-slate-500'}`}>
+                              <p className={`text-[9px] font-medium mt-1 ${selectedAgent?.id === agent.id ? 'text-emerald-100' : 'text-slate-500'}`}>
                                 {agent.role} • {agent.working_duration}
                               </p>
                             </div>
@@ -460,7 +456,7 @@ const LiveMap: React.FC = () => {
                           {selectedAgent?.id === agent.id ? (
                             <Target className="w-4 h-4 text-white animate-pulse" />
                           ) : (
-                            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-400" />
+                            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-400" />
                           )}
                         </div>
                       </button>
@@ -535,12 +531,12 @@ const LiveMap: React.FC = () => {
 
           <div className="p-6 bg-slate-50 border-t border-slate-100">
              <div className="flex items-center gap-2 mb-2">
-                <Info className="w-4 h-4 text-indigo-500" />
+                <Info className="w-4 h-4 text-emerald-500" />
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Map Legend</p>
              </div>
              <div className="flex flex-wrap gap-4">
                <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-500">
-                  <div className="w-2.5 h-2.5 bg-indigo-600 rounded-full"></div> Field Agent
+                  <div className="w-2.5 h-2.5 bg-emerald-600 rounded-full"></div> Field Agent
                </div>
                <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-500">
                   <div className="w-2.5 h-2.5 bg-white border border-slate-300 rounded"></div> Store
@@ -549,7 +545,7 @@ const LiveMap: React.FC = () => {
                   <div className="w-2.5 h-2.5 bg-emerald-600 rounded"></div> Visited
                </div>
                <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-500">
-                  <div className="w-2.5 h-2.5 bg-emerald-500 rounded-sm"></div> GPS Route
+                  <div className="w-2.5 h-2.5 bg-red-500 rounded-sm"></div> GPS Route
                </div>
              </div>
           </div>

@@ -78,25 +78,33 @@ const StoreManagement: React.FC = () => {
 
   useEffect(() => {
     // Convert mock data IDs from string to number
-    const convertedStores = MOCK_STORES.map((s, index) => ({
-      ...s,
-      id: s.id && typeof s.id === 'string' ? parseInt(s.id.replace('S', '')) : index + 1,
-      currentAssignment: s.currentAssignment ? {
-        ...s.currentAssignment,
-        agentId: s.currentAssignment.agentId && typeof s.currentAssignment.agentId === 'string'
-          ? parseInt(s.currentAssignment.agentId.replace('A', ''))
-          : null
-      } : null,
-      visitHistory: s.visitHistory?.map((v, vIndex) => ({
-        ...v,
-        id: v.id && typeof v.id === 'string' ? parseInt(v.id.replace('L', '')) : vIndex,
-        agentId: v.agentId && typeof v.agentId === 'string' ? parseInt(v.agentId.replace('A', '')) : null
-      })) || [],
-      timeline: s.timeline?.map(t => ({
-        ...t,
-        agentId: t.agentId && typeof t.agentId === 'string' ? parseInt(t.agentId.replace('A', '')) : null
-      })) || []
-    })) as any;
+    const convertedStores = MOCK_STORES.map((s, index) => {
+      const parsedId = s.id && typeof s.id === 'string' ? parseInt(s.id.replace('S', '')) : index + 1;
+      const storeId = isNaN(parsedId) ? index + 1 : parsedId;
+
+      return {
+        ...s,
+        id: storeId,
+        currentAssignment: s.currentAssignment ? {
+          ...s.currentAssignment,
+          agentId: s.currentAssignment.agentId && typeof s.currentAssignment.agentId === 'string'
+            ? parseInt(s.currentAssignment.agentId.replace('A', ''))
+            : null
+        } : null,
+        visitHistory: s.visitHistory?.map((v, vIndex) => {
+          const parsedVisitId = v.id && typeof v.id === 'string' ? parseInt(v.id.replace('L', '')) : vIndex;
+          return {
+            ...v,
+            id: isNaN(parsedVisitId) ? vIndex : parsedVisitId,
+            agentId: v.agentId && typeof v.agentId === 'string' ? parseInt(v.agentId.replace('A', '')) : null
+          };
+        }) || [],
+        timeline: s.timeline?.map(t => ({
+          ...t,
+          agentId: t.agentId && typeof t.agentId === 'string' ? parseInt(t.agentId.replace('A', '')) : null
+        })) || []
+      };
+    }) as any;
 
     const convertedAgents = MOCK_AGENTS.map((a, index) => ({
       ...a,

@@ -95,6 +95,8 @@ model User {
   surveyor_surveys  Survey[]         @relation("SurveyorSurveys")
   assigned_surveys  Survey[]         @relation("AssignedSurveys")
   gps_tracking_points GpsTrackingPoint[]
+  created_transactions Transaction[]  @relation("TransactionCreator")
+  reviewed_transactions Transaction[] @relation("TransactionReviewer")
 
   @@index([email])
   @@index([role])
@@ -268,6 +270,26 @@ model Announcement {
   @@map("announcements")
 }
 
+model Product {
+  id              Int       @id @default(autoincrement())
+  product_code    String    @unique @map("product_code")
+  product_name    String    @map("product_name")
+  description     String?
+  category        String?
+  unit_of_measure String?   @default("PIECE") @map("unit_of_measure")
+  price           Decimal   @db.Decimal(12, 2)
+  cost            Decimal?  @db.Decimal(12, 2)
+  is_active       Boolean   @default(true) @map("is_active")
+  image_url       String?   @map("image_url")
+  stock_quantity  Int       @default(0) @map("stock_quantity")
+  created_at      DateTime  @default(now()) @map("created_at")
+  updated_at      DateTime  @default(now()) @map("updated_at")
+
+  @@index([category], map: "idx_products_category")
+  @@index([is_active], map: "idx_products_active")
+  @@map("products")
+}
+
 model Survey {
   id                  Int       @id @default(autoincrement())
   store_name          String    @map("store_name")
@@ -275,6 +297,8 @@ model Survey {
   contact_number      String    @map("contact_number")
   contact_person      String?   @map("contact_person")
   current_supplier    String?   @map("current_supplier")
+  customer_status     String    @default("PROSPECT") @map("customer_status")
+  first_purchase_date DateTime? @map("first_purchase_date")
   address             String
   address_line1       String    @map("address_line1")
   address_line2       String    @map("address_line2")
@@ -299,8 +323,9 @@ model Survey {
   assigned_at         DateTime? @map("assigned_at")
 
   // Relations
-  surveyor    User  @relation("SurveyorSurveys", fields: [surveyor_id], references: [id])
-  assigned_to User? @relation("AssignedSurveys", fields: [assigned_to_id], references: [id])
+  surveyor    User          @relation("SurveyorSurveys", fields: [surveyor_id], references: [id])
+  assigned_to User?         @relation("AssignedSurveys", fields: [assigned_to_id], references: [id])
+  transactions Transaction[]
 
   @@index([surveyor_id])
   @@index([assigned_to_id])
@@ -331,4 +356,59 @@ model GpsTrackingPoint {
   @@index([attendance_id])
   @@index([timestamp])
   @@map("gps_tracking_points")
+}
+
+model Transaction {
+  id                    Int       @id @default(autoincrement())
+  transaction_number    String    @unique @map("transaction_number")
+  survey_id             Int?      @map("survey_id")
+  assignment_id         Int?      @map("assignment_id")
+  store_name            String    @map("store_name")
+  total_amount          Decimal   @map("total_amount")
+  payment_terms         String    @map("payment_terms")
+  status                String    @default("PENDING")
+  requires_delivery     Boolean   @default(false) @map("requires_delivery")
+  delivery_date         DateTime? @map("delivery_date")
+  created_by            Int       @map("created_by")
+  reviewed_by           Int?      @map("reviewed_by")
+  admin_notes           String?   @map("admin_notes")
+  created_at            DateTime  @default(now()) @map("created_at")
+  updated_at            DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  creator   User               @relation("TransactionCreator", fields: [created_by], references: [id])
+  reviewer  User?              @relation("TransactionReviewer", fields: [reviewed_by], references: [id])
+  survey    Survey?            @relation(fields: [survey_id], references: [id])
+  items     TransactionItem[]
+
+  @@index([created_by])
+  @@index([reviewed_by])
+  @@index([survey_id])
+  @@index([status])
+  @@index([created_at])
+  @@map("transactions")
+}
+
+model TransactionItem {
+  id               Int         @id @default(autoincrement())
+  transaction_id   Int         @map("transaction_id")
+  product_id       Int?        @map("product_id")
+  product_name     String      @map("product_name")
+  product_code     String?     @map("product_code")
+  quantity         Int
+  unit_price       Decimal     @map("unit_price")
+  subtotal         Decimal
+  discount_percent Decimal?    @default(0) @map("discount_percent")
+  discount_amount  Decimal?    @default(0) @map("discount_amount")
+  total_amount     Decimal     @map("total_amount")
+  unit_of_measure  String?     @map("unit_of_measure")
+  notes            String?
+  created_at       DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  transaction Transaction @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
+
+  @@index([transaction_id])
+  @@index([product_id], map: "idx_transaction_items_product")
+  @@map("transaction_items")
 }
