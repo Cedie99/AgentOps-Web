@@ -1,27 +1,27 @@
 import { create } from 'zustand';
-import { Agent, MobileRole, AgentStatus } from '@prisma/client';
+import { User, UserRole, AgentStatus } from '@prisma/client';
 
 interface AgentsState {
-  agents: Agent[];
-  selectedAgent: Agent | null;
-  filterRole: MobileRole | 'ALL';
+  agents: User[];
+  selectedAgent: User | null;
+  filterRole: UserRole | 'ALL';
   filterStatus: AgentStatus | 'ALL';
   searchQuery: string;
   isLoading: boolean;
 
   // Actions
-  setAgents: (agents: Agent[]) => void;
-  addAgent: (agent: Agent) => void;
-  updateAgent: (id: number, updates: Partial<Agent>) => void;
+  setAgents: (agents: User[]) => void;
+  addAgent: (agent: User) => void;
+  updateAgent: (id: number, updates: Partial<User>) => void;
   deleteAgent: (id: number) => void;
-  setSelectedAgent: (agent: Agent | null) => void;
-  setFilterRole: (role: MobileRole | 'ALL') => void;
+  setSelectedAgent: (agent: User | null) => void;
+  setFilterRole: (role: UserRole | 'ALL') => void;
   setFilterStatus: (status: AgentStatus | 'ALL') => void;
   setSearchQuery: (query: string) => void;
   setLoading: (loading: boolean) => void;
 
   // Computed
-  filteredAgents: () => Agent[];
+  filteredAgents: () => User[];
 }
 
 export const useAgentsStore = create<AgentsState>((set, get) => ({
@@ -64,7 +64,7 @@ export const useAgentsStore = create<AgentsState>((set, get) => ({
 
     return agents.filter(agent => {
       const matchesRole = filterRole === 'ALL' || agent.role === filterRole;
-      const matchesStatus = filterStatus === 'ALL' || agent.status === filterStatus;
+      const matchesStatus = filterStatus === 'ALL' || agent.agent_status === filterStatus;
       const matchesSearch = !searchQuery ||
         agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         agent.email?.toLowerCase().includes(searchQuery.toLowerCase());

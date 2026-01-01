@@ -68,8 +68,8 @@ const FleetAssignment: React.FC = () => {
     if (agentIdStr) {
       const agentId = typeof agentIdStr === 'string' ? parseInt(agentIdStr) : agentIdStr;
       updateAgent(agentId, {
-        status: 'Available',
-        vehicleId: undefined
+        agent_status: 'AVAILABLE',
+        vehicle_id: undefined
       });
     }
   };
@@ -83,8 +83,8 @@ const FleetAssignment: React.FC = () => {
 
     // 2. Update agent status and link to vehicle
     updateAgent(agentId, {
-      status: 'On Field',
-      vehicleId: vehicleId
+      agent_status: 'ON_FIELD',
+      vehicle_id: vehicleId
     });
 
     closeModal('editVehicle');
@@ -263,12 +263,12 @@ const FleetAssignment: React.FC = () => {
                 <div className="flex items-center justify-between px-1">
                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Available Personnel</p>
                    <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
-                     {agents.filter(a => a.status === 'Available').length} Ready
+                     {agents.filter(a => a.agent_status === 'AVAILABLE').length} Ready
                    </span>
                 </div>
-                
-                {agents.filter(a => a.status === 'Available').length > 0 ? (
-                  agents.filter(a => a.status === 'Available').map((agent) => (
+
+                {agents.filter(a => a.agent_status === 'AVAILABLE').length > 0 ? (
+                  agents.filter(a => a.agent_status === 'AVAILABLE').map((agent) => (
                     <div 
                       key={agent.id} 
                       className="group flex items-center justify-between p-4 bg-white border border-slate-100 rounded-3xl hover:border-indigo-500 hover:shadow-xl hover:shadow-indigo-50/50 transition-all cursor-pointer"
@@ -282,7 +282,7 @@ const FleetAssignment: React.FC = () => {
                           <p className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{agent.name}</p>
                           <div className="flex items-center gap-3 text-[10px] text-slate-500 font-bold uppercase tracking-tight mt-1">
                             <span className="text-indigo-600">{agent.role}</span>
-                            <span className="flex items-center gap-1 font-medium"><Clock className="w-3 h-3" /> Seen {agent.lastSeen}</span>
+                            <span className="flex items-center gap-1 font-medium"><Clock className="w-3 h-3" /> Seen {agent.last_seen ? new Date(agent.last_seen).toLocaleDateString() : 'N/A'}</span>
                           </div>
                         </div>
                       </div>

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Store, StoreStatus, CustomerType, MobileRole } from '@prisma/client';
+import { Store, StoreStatus, CustomerType } from '@prisma/client';
 
 interface StoresState {
   stores: Store[];
@@ -65,7 +65,7 @@ export const useStoresStore = create<StoresState>((set, get) => ({
 
     return stores.filter(store => {
       const matchesStatus = filterStatus === 'ALL' || store.status === filterStatus;
-      const matchesCustomerType = filterCustomerType === 'ALL' || store.customerType === filterCustomerType;
+      const matchesCustomerType = filterCustomerType === 'ALL' || store.customer_type === filterCustomerType;
       const matchesSearch = !searchQuery ||
         store.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         store.address.toLowerCase().includes(searchQuery.toLowerCase());

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { MOCK_STORES, MOCK_AGENTS } from '@/lib/constants';
-import { Store, StoreStatus, MobileRole, Agent, VisitLog, CustomerType } from '@/lib/types';
+import { Store, StoreStatus, VisitLog, CustomerType } from '@/lib/types';
+import { UserRole, User } from '@prisma/client';
 import { useStoresStore, useAgentsStore, useUIStore } from '@/store';
 import {
   Search,
@@ -116,25 +117,25 @@ const StoreManagement: React.FC = () => {
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [isProofModalOpen, setIsProofModalOpen] = useState(false);
   const [activeProofUrl, setActiveProofUrl] = useState<string | null>(null);
-  const [targetRole, setTargetRole] = useState<MobileRole | null>(null);
+  const [targetRole, setTargetRole] = useState<UserRole | null>(null);
   const [activeTab, setActiveTab] = useState<'timeline' | 'visits'>('timeline');
 
   const getNextAction = (status: StoreStatus) => {
     switch (status) {
       case StoreStatus.SURVEYED:
-        return { label: 'Assign Sales Rep (Prospecting)', role: MobileRole.SALES };
+        return { label: 'Assign Sales Rep (Prospecting)', role: UserRole.SALES };
       case StoreStatus.SALES_VISITED:
-        return { label: 'Assign Delivery Team', role: MobileRole.DELIVERY };
+        return { label: 'Assign Delivery Team', role: UserRole.DELIVERY };
       case StoreStatus.DELIVERED:
-        return { label: 'Assign Collector', role: MobileRole.COLLECTOR };
+        return { label: 'Assign Collector', role: UserRole.COLLECTOR };
       case StoreStatus.PENDING:
-        return { label: 'Assign Surveyor', role: MobileRole.SURVEYOR };
+        return { label: 'Assign Surveyor', role: UserRole.SURVEYOR };
       default:
         return null;
     }
   };
 
-  const handleAssignClick = (role: MobileRole) => {
+  const handleAssignClick = (role: UserRole) => {
     setTargetRole(role);
     openModal('addStore');
   };
@@ -513,7 +514,7 @@ const StoreManagement: React.FC = () => {
                         <p className="text-sm font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">{agent.name}</p>
                         <div className="flex items-center gap-3 text-[10px] text-slate-500 font-medium mt-1">
                           <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> Seen {agent.lastSeen}
+                            <Clock className="w-3 h-3" /> Seen {agent.last_seen ? new Date(agent.last_seen).toLocaleDateString() : 'N/A'}
                           </span>
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3 h-3" /> Area: North

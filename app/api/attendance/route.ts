@@ -84,9 +84,9 @@ export async function GET(request: NextRequest) {
     // Calculate statistics
     const stats = {
       total: attendance.length,
-      working: attendance.filter(a => !a.clock_out_time).length,
-      completed: attendance.filter(a => a.clock_out_time).length,
-      totalDistance: attendance.reduce((sum, a) => sum + (a.total_distance || 0), 0),
+      working: attendance.filter((a: any) => !a.clock_out_time).length,
+      completed: attendance.filter((a: any) => a.clock_out_time).length,
+      totalDistance: attendance.reduce((sum: number, a: any) => sum + (a.total_distance || 0), 0),
     }
 
     return NextResponse.json({ attendance, stats })
