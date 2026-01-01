@@ -61,7 +61,7 @@ const TypeBadge = ({ type }: { type: CustomerType }) => {
 
   return (
     <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold border shadow-sm ${styles[type]}`}>
-      <Icon className="w-3 h-3" />
+      {Icon && <Icon className="w-3 h-3" />}
       {type}
     </span>
   );
@@ -111,7 +111,7 @@ const StoreManagement: React.FC = () => {
 
     setStores(convertedStores);
     setAgents(convertedAgents);
-  }, []);
+  }, [setStores, setAgents]);
 
   // Local state for UI
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
