@@ -45,9 +45,9 @@ export async function POST(request: NextRequest) {
         lat: body.lat,
         lng: body.lng,
         status: body.status || 'PENDING',
-        customerType: body.customerType || 'PROSPECT',
-        orderValue: body.orderValue,
-        collectionAmount: body.collectionAmount,
+        customer_type: body.customerType || 'PROSPECT',
+        order_value: body.orderValue,
+        collection_amount: body.collectionAmount,
       },
     })
 

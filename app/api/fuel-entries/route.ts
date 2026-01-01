@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const vehicleId = searchParams.get('vehicleId')
 
     const where: any = {}
-    if (vehicleId) where.vehicleId = vehicleId
+    if (vehicleId) where.vehicle_id = vehicleId
 
     const fuelEntries = await prisma.fuelEntry.findMany({
       where,
@@ -38,11 +38,11 @@ export async function POST(request: NextRequest) {
 
     const fuelEntry = await prisma.fuelEntry.create({
       data: {
-        vehicleId: body.vehicleId,
+        vehicle_id: body.vehicleId,
         liters: body.liters,
         cost: body.cost,
-        loggedBy: body.loggedBy,
-        userId: body.userId,
+        logged_by: body.loggedBy,
+        user_id: body.userId,
         date: body.date ? new Date(body.date) : new Date(),
       },
     })

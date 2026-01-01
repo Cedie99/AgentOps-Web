@@ -6,8 +6,8 @@ export async function GET() {
   try {
     const vehicles = await prisma.vehicle.findMany({
       include: {
-        agents: true,
-        fuelEntries: {
+        users: true,
+        fuel_entries: {
           orderBy: { date: 'desc' },
           take: 5,
         },
@@ -31,10 +31,10 @@ export async function POST(request: NextRequest) {
       data: {
         model: body.model,
         plate: body.plate,
-        totalKm: body.totalKm || 0,
-        fuelRate: body.fuelRate,
+        total_km: body.totalKm || 0,
+        fuel_rate: body.fuelRate,
         status: body.status || 'AVAILABLE',
-        assignedTo: body.assignedTo,
+        assigned_to: body.assignedTo,
       },
     })
 

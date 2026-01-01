@@ -95,14 +95,10 @@ const StoreManagement: React.FC = () => {
           const parsedVisitId = v.id && typeof v.id === 'string' ? parseInt(v.id.replace('L', '')) : vIndex;
           return {
             ...v,
-            id: isNaN(parsedVisitId) ? vIndex : parsedVisitId,
-            agentId: v.agentId && typeof v.agentId === 'string' ? parseInt(v.agentId.replace('A', '')) : null
+            id: isNaN(parsedVisitId) ? vIndex : parsedVisitId
           };
         }) || [],
-        timeline: s.timeline?.map(t => ({
-          ...t,
-          agentId: t.agentId && typeof t.agentId === 'string' ? parseInt(t.agentId.replace('A', '')) : null
-        })) || []
+        timeline: s.timeline || []
       };
     }) as any;
 
@@ -188,30 +184,30 @@ const StoreManagement: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {stores.map((store) => (
-                  <tr 
-                    key={store.id} 
-                    className={`hover:bg-slate-50 cursor-pointer transition-all ${selectedStore?.id === store.id ? 'bg-emerald-50/50' : ''}`}
-                    onClick={() => setSelectedStore(store)}
+                  <tr
+                    key={store.id}
+                    className={`hover:bg-slate-50 cursor-pointer transition-all ${selectedStore?.id === store.id.toString() ? 'bg-emerald-50/50' : ''}`}
+                    onClick={() => setSelectedStore(store as any)}
                   >
                     <td className="px-6 py-4">
                       <div className="font-bold text-slate-800">{store.name}</div>
                       <div className="flex items-center gap-2 mt-1.5">
-                        <TypeBadge type={store.customerType} />
+                        <TypeBadge type={store.customer_type as any} />
                         <span className="text-[10px] text-slate-400 font-medium">ID: {store.id}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <StatusBadge status={store.status} />
+                      <StatusBadge status={store.status as any} />
                     </td>
                     <td className="px-6 py-4">
-                      {store.currentAssignment ? (
+                      {(store as any).current_user ? (
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center text-xs font-bold text-emerald-700 border-2 border-white shadow-sm">
-                            {store.currentAssignment.agentName.charAt(0)}
+                            {(store as any).current_user.name.charAt(0)}
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-slate-700">{store.currentAssignment.agentName}</p>
-                            <p className="text-[10px] text-slate-400 font-medium">{store.currentAssignment.role}</p>
+                            <p className="text-xs font-bold text-slate-700">{(store as any).current_user.name}</p>
+                            <p className="text-[10px] text-slate-400 font-medium">{(store as any).current_user.role}</p>
                           </div>
                         </div>
                       ) : (

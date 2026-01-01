@@ -118,7 +118,7 @@ const UserManagement: React.FC = () => {
       const response = await fetch('/api/users')
       if (!response.ok) throw new Error('Failed to fetch users')
       const data = await response.json()
-      setUsers(data)
+      setUsers(data.users || data)
     } catch (err) {
       console.error('Error fetching users:', err)
       setError('Failed to load users')

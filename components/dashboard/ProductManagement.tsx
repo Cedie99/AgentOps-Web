@@ -16,6 +16,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuthStore } from '@/store/authStore';
 
 interface Product {
   id: number;
@@ -49,6 +50,9 @@ const CATEGORIES = [
 const UNITS = ['PIECE', 'BOX', 'PACK', 'KG', 'LITER', 'CASE'];
 
 const ProductManagement: React.FC = () => {
+  const { dbUser } = useAuthStore();
+  const isSuperAdmin = dbUser?.role === 'SUPER_ADMIN';
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -273,7 +277,7 @@ const ProductManagement: React.FC = () => {
           <p className="text-slate-500 text-sm">No products found</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
           {filteredProducts.map((product) => (
             <div
               key={product.id}
@@ -403,14 +407,24 @@ const ProductManagement: React.FC = () => {
               {/* Product Code and Name */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Product Code *</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Product Code *
+                    {editingProduct && !isSuperAdmin && (
+                      <span className="text-xs text-slate-500 ml-2">(Cannot be changed)</span>
+                    )}
+                    {editingProduct && isSuperAdmin && (
+                      <span className="text-xs text-emerald-600 ml-2">(Editable for Super Admin)</span>
+                    )}
+                  </label>
                   <Input
                     type="text"
                     value={formData.product_code}
                     onChange={(e) => setFormData({ ...formData, product_code: e.target.value })}
                     required
-                    disabled={!!editingProduct}
+                    disabled={!!editingProduct && !isSuperAdmin}
+                    readOnly={!!editingProduct && !isSuperAdmin}
                     placeholder="e.g., PROD-001"
+                    className={editingProduct && !isSuperAdmin ? "bg-slate-100 cursor-not-allowed" : ""}
                   />
                 </div>
                 <div>

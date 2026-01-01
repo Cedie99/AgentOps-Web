@@ -45,7 +45,9 @@ const FleetAssignment: React.FC = () => {
     const convertedVehicles = MOCK_VEHICLES.map(v => ({
       ...v,
       id: parseInt(v.id.replace('V', '')),
-      assignedTo: v.assignedTo
+      assigned_to: v.assignedTo,
+      total_km: v.totalKm || 0,
+      fuel_rate: v.fuelRate || 0
     })) as any;
 
     setAgents(convertedAgents);
@@ -54,16 +56,17 @@ const FleetAssignment: React.FC = () => {
 
   const handleReturnToOffice = (vehicleId: number) => {
     const vehicle = vehicles.find(v => v.id === vehicleId);
-    const agentId = vehicle?.assignedTo;
+    const agentIdStr = vehicle?.assigned_to;
 
     // 1. Mark vehicle as available
     updateVehicle(vehicleId, {
-      status: VehicleStatus.AVAILABLE,
-      assignedTo: undefined
+      status: 'AVAILABLE',
+      assigned_to: undefined
     });
 
     // 2. Mark agent as available (if they were assigned)
-    if (agentId) {
+    if (agentIdStr) {
+      const agentId = typeof agentIdStr === 'string' ? parseInt(agentIdStr) : agentIdStr;
       updateAgent(agentId, {
         status: 'Available',
         vehicleId: undefined
@@ -74,8 +77,8 @@ const FleetAssignment: React.FC = () => {
   const handleAssignAgent = (vehicleId: number, agentId: number) => {
     // 1. Mark vehicle as in use and link to agent
     updateVehicle(vehicleId, {
-      status: VehicleStatus.IN_USE,
-      assignedTo: agentId
+      status: 'IN_USE',
+      assigned_to: agentId.toString()
     });
 
     // 2. Update agent status and link to vehicle
@@ -124,28 +127,29 @@ const FleetAssignment: React.FC = () => {
               <CheckCircle2 className="w-24 h-24 text-emerald-900" />
            </div>
            <p className="text-[11px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Available Ready</p>
-           <h3 className="text-2xl font-bold text-emerald-600">{vehicles.filter(v => v.status === VehicleStatus.AVAILABLE).length} Units</h3>
+           <h3 className="text-2xl font-bold text-emerald-600">{vehicles.filter(v => v.status === 'AVAILABLE').length} Units</h3>
         </div>
         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-indigo-200 transition-colors">
            <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
               <ArrowLeftRight className="w-24 h-24 text-indigo-900" />
            </div>
            <p className="text-[11px] font-bold text-indigo-500 uppercase tracking-widest mb-1">Vehicles In Use</p>
-           <h3 className="text-2xl font-bold text-indigo-600">{vehicles.filter(v => v.status === VehicleStatus.IN_USE).length} Units</h3>
+           <h3 className="text-2xl font-bold text-indigo-600">{vehicles.filter(v => v.status === 'IN_USE').length} Units</h3>
         </div>
         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden group hover:border-amber-200 transition-colors">
            <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
               <ShieldAlert className="w-24 h-24 text-amber-900" />
            </div>
            <p className="text-[11px] font-bold text-amber-500 uppercase tracking-widest mb-1">Maintenance</p>
-           <h3 className="text-2xl font-bold text-amber-600">{vehicles.filter(v => v.status === VehicleStatus.MAINTENANCE).length} Units</h3>
+           <h3 className="text-2xl font-bold text-amber-600">{vehicles.filter(v => v.status === 'MAINTENANCE').length} Units</h3>
         </div>
       </div>
 
       {/* Fleet Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {vehicles.map((vehicle) => {
-          const assignedAgent = agents.find(a => a.id === vehicle.assignedTo);
+          const assignedAgentId = vehicle.assigned_to ? (typeof vehicle.assigned_to === 'string' ? parseInt(vehicle.assigned_to) : vehicle.assigned_to) : null;
+          const assignedAgent = assignedAgentId ? agents.find(a => a.id === assignedAgentId) : undefined;
           
           return (
             <div key={vehicle.id} className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col group hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-50/20 transition-all duration-300">
@@ -156,8 +160,8 @@ const FleetAssignment: React.FC = () => {
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter border ${
-                      vehicle.status === VehicleStatus.IN_USE ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 
-                      vehicle.status === VehicleStatus.AVAILABLE ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'
+                      vehicle.status === 'IN_USE' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
+                      vehicle.status === 'AVAILABLE' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'
                     }`}>
                       {vehicle.status}
                     </span>
@@ -189,21 +193,21 @@ const FleetAssignment: React.FC = () => {
                       <Gauge className="w-4 h-4 text-slate-300" /> Odometer
                     </span>
                     <span className="font-bold text-slate-700">
-                      {vehicle.totalKm.toLocaleString()} KM
+                      {vehicle.total_km.toLocaleString()} KM
                     </span>
                   </div>
                 </div>
               </div>
 
               <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 group-hover:bg-white transition-colors">
-                {vehicle.status === VehicleStatus.IN_USE ? (
+                {vehicle.status === 'IN_USE' ? (
                   <button 
                     onClick={() => handleReturnToOffice(vehicle.id)}
                     className="w-full py-2.5 bg-white border border-emerald-200 text-emerald-600 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
                   >
                     <ParkingCircle className="w-4 h-4" /> Return to Office
                   </button>
-                ) : vehicle.status === VehicleStatus.AVAILABLE ? (
+                ) : vehicle.status === 'AVAILABLE' ? (
                   <button
                     onClick={() => { setSelectedVehicle(vehicle as any); openModal('editVehicle'); }}
                     className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"

@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
       content: body.content,
       target: body.target || 'All',
       priority: body.priority || 'MEDIUM',
+      requires_acknowledgment: body.requires_acknowledgment || false,
       created_by: currentUser.id,
     }
 

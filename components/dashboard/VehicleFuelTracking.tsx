@@ -36,8 +36,8 @@ const VehicleFuelTracking: React.FC = () => {
     { name: 'V004', consumption: 32, efficiency: 15.1 },
   ];
 
-  const handleOpenModal = (vehicle: Vehicle) => {
-    setSelectedVehicle(vehicle);
+  const handleOpenModal = (vehicle: any) => {
+    setSelectedVehicle(vehicle as any);
     openModal('addVehicle');
   };
 
@@ -95,12 +95,12 @@ const VehicleFuelTracking: React.FC = () => {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-1.5 w-16 bg-slate-100 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-emerald-500" 
-                            style={{ width: `${Math.min((v.fuelRate / 45) * 100, 100)}%` }}
+                          <div
+                            className="h-full bg-emerald-500"
+                            style={{ width: `${Math.min((v.fuel_rate / 45) * 100, 100)}%` }}
                           ></div>
                         </div>
-                        <span className="text-xs font-bold text-slate-700">{v.fuelRate} km/L</span>
+                        <span className="text-xs font-bold text-slate-700">{v.fuel_rate} km/L</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">

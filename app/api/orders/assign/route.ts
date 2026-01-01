@@ -26,11 +26,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Get request body
-    const { orderId, assignType, assigneeId } = await request.json()
+    const { orderId, assignType, assigneeId, deliveryDate } = await request.json()
 
     if (!orderId || !assignType || !assigneeId) {
       return NextResponse.json(
         { error: 'Missing required fields: orderId, assignType, assigneeId' },
+        { status: 400 }
+      )
+    }
+
+    if (assignType === 'DELIVERY' && !deliveryDate) {
+      return NextResponse.json(
+        { error: 'Missing required field: deliveryDate for delivery assignment' },
         { status: 400 }
       )
     }
@@ -80,102 +87,98 @@ export async function POST(request: NextRequest) {
     }
 
     if (assignType === 'DELIVERY') {
-      // Assign to delivery
+      // Update transaction status to PROCESSING
       const updatedTransaction = await prisma.transaction.update({
         where: { id: orderId },
         data: {
-          assigned_to_delivery: assigneeId,
-          delivery_assigned_at: new Date(),
           status: 'PROCESSING'
         }
       })
 
-      // Check if delivery order exists, if not create one
-      let deliveryOrder = await prisma.$queryRaw`
-        SELECT * FROM delivery_orders WHERE transaction_id = ${orderId} LIMIT 1
-      ` as any[]
+      // Get transaction items for the delivery order
+      const transactionItems = await prisma.transactionItem.findMany({
+        where: { transaction_id: orderId }
+      })
 
-      if (!deliveryOrder || deliveryOrder.length === 0) {
-        // Generate delivery order number
-        const year = new Date().getFullYear()
-        const lastDelivery = await prisma.$queryRaw`
-          SELECT order_number FROM delivery_orders
-          WHERE order_number LIKE ${`DO-${year}-%`}
-          ORDER BY created_at DESC
-          LIMIT 1
-        ` as any[]
+      const totalItems = transactionItems.reduce((sum, item) => sum + item.quantity, 0)
+      const itemsDescription = transactionItems
+        .map(item => `${item.product_name} (${item.quantity})`)
+        .join(', ')
 
-        let newSequence = '0001'
-        if (lastDelivery && lastDelivery.length > 0) {
-          const lastNumber = lastDelivery[0].order_number
-          const lastSeq = parseInt(lastNumber.split('-')[2])
-          newSequence = (lastSeq + 1).toString().padStart(4, '0')
-        }
-        const orderNumber = `DO-${year}-${newSequence}`
+      // Generate delivery order number
+      const year = new Date().getFullYear()
+      const lastDelivery = await prisma.deliveryOrder.findFirst({
+        where: {
+          order_number: {
+            startsWith: `DO-${year}-`
+          }
+        },
+        orderBy: { created_at: 'desc' }
+      })
 
-        // Create delivery order
-        await prisma.$executeRaw`
-          INSERT INTO delivery_orders (
-            order_number,
-            transaction_id,
-            survey_id,
-            store_name,
-            delivery_address,
-            contact_number,
-            contact_person,
-            gps_latitude,
-            gps_longitude,
-            created_by,
-            assigned_to,
-            assigned_at,
-            delivery_date,
-            total_items,
-            items_description,
-            status
-          ) VALUES (
-            ${orderNumber},
-            ${orderId},
-            ${transaction.survey_id},
-            ${transaction.store_name},
-            ${transaction.survey?.address || ''},
-            ${transaction.survey?.contact_number || ''},
-            ${transaction.survey?.contact_person || ''},
-            ${transaction.survey?.gps_latitude || null},
-            ${transaction.survey?.gps_longitude || null},
-            ${user.id},
-            ${assigneeId},
-            ${new Date()},
-            ${transaction.delivery_date || new Date()},
-            ${transaction.total_items},
-            ${transaction.items_description},
-            'ASSIGNED'
-          )
-        `
-      } else {
-        // Update existing delivery order
-        await prisma.$executeRaw`
-          UPDATE delivery_orders
-          SET assigned_to = ${assigneeId},
-              assigned_at = ${new Date()},
-              status = 'ASSIGNED'
-          WHERE transaction_id = ${orderId}
-        `
+      let newSequence = '0001'
+      if (lastDelivery) {
+        const lastSeq = parseInt(lastDelivery.order_number.split('-')[2])
+        newSequence = (lastSeq + 1).toString().padStart(4, '0')
       }
+      const orderNumber = `DO-${year}-${newSequence}`
+
+      // Create delivery order using raw SQL since Prisma model might not have all fields
+      await prisma.$executeRaw`
+        INSERT INTO delivery_orders (
+          order_number,
+          transaction_id,
+          store_name,
+          delivery_address,
+          contact_number,
+          contact_person,
+          special_instructions,
+          created_by,
+          assigned_to,
+          assigned_at,
+          delivery_date,
+          total_items,
+          items_description,
+          status
+        ) VALUES (
+          ${orderNumber},
+          ${orderId},
+          ${transaction.store_name},
+          ${transaction.survey?.address || transaction.store_name},
+          ${transaction.survey?.contact_number || ''},
+          ${transaction.survey?.contact_person || ''},
+          ${transaction.admin_notes || null},
+          ${user.id},
+          ${assigneeId},
+          ${new Date()},
+          ${new Date(deliveryDate)},
+          ${totalItems},
+          ${itemsDescription},
+          'ASSIGNED'
+        )
+      `
+
+      // Fetch the created delivery order to return
+      const deliveryOrder = await prisma.$queryRaw`
+        SELECT * FROM delivery_orders WHERE order_number = ${orderNumber}
+      ` as any[]
 
       return NextResponse.json({
         success: true,
         message: 'Order assigned to delivery successfully',
-        transaction: updatedTransaction
+        transaction: updatedTransaction,
+        deliveryOrder: deliveryOrder[0]
       })
     } else {
-      // Assign to collector
+      // Assign to collector - just update the status for now
       const updatedTransaction = await prisma.transaction.update({
         where: { id: orderId },
         data: {
-          assigned_to_collector: assigneeId,
-          collector_assigned_at: new Date()
+          status: 'PROCESSING'
         }
       })
+
+      // TODO: Create collection order if needed
 
       return NextResponse.json({
         success: true,

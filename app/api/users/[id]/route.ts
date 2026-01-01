@@ -17,10 +17,11 @@ const supabaseAdmin = createClient(
 // PATCH update existing user
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = parseInt(params.id)
+    const { id } = await params
+    const userId = parseInt(id)
     const body = await request.json()
     const { name, email, password, role } = body
 
@@ -99,14 +100,25 @@ export async function PATCH(
     })
 
     // Update Supabase auth user if email or password changed
+    let authUpdateSuccess = true
+    let authUpdateMessage = ''
+
     try {
       // Find the Supabase auth user by email
       const { data: authUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers()
 
-      if (!listError && authUsers) {
+      if (listError) {
+        console.error('Error listing Supabase users:', listError)
+        authUpdateSuccess = false
+        authUpdateMessage = 'Failed to list auth users'
+      } else if (authUsers) {
         const authUser = authUsers.users.find(u => u.email === existingUser.email)
 
-        if (authUser) {
+        if (!authUser) {
+          console.warn('Auth user not found for email:', existingUser.email)
+          authUpdateSuccess = false
+          authUpdateMessage = 'Auth user not found'
+        } else {
           const updateAuthData: any = {}
 
           if (email !== existingUser.email) {
@@ -118,27 +130,52 @@ export async function PATCH(
           }
 
           if (Object.keys(updateAuthData).length > 0) {
+            // Always update user metadata
             updateAuthData.user_metadata = { name, role }
 
-            const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+            console.log('Updating Supabase auth user:', authUser.id, 'with data:', {
+              ...updateAuthData,
+              password: password ? '[REDACTED]' : undefined
+            })
+
+            const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
               authUser.id,
               updateAuthData
             )
 
             if (updateError) {
-              console.warn('Supabase auth update warning:', updateError)
+              console.error('Supabase auth update error:', updateError)
+              authUpdateSuccess = false
+              authUpdateMessage = updateError.message || 'Failed to update auth user'
+            } else {
+              console.log('Supabase auth user updated successfully')
+              authUpdateMessage = 'Password and email updated in auth system'
             }
           }
         }
       }
-    } catch (authErr) {
-      console.warn('Supabase auth update error:', authErr)
-      // Continue even if Supabase update fails
+    } catch (authErr: any) {
+      console.error('Supabase auth update exception:', authErr)
+      authUpdateSuccess = false
+      authUpdateMessage = authErr.message || 'Auth update failed'
+    }
+
+    // If password was provided but auth update failed, return error
+    if (password && !authUpdateSuccess) {
+      return NextResponse.json({
+        success: false,
+        error: `User updated in database but password update failed: ${authUpdateMessage}`,
+        user,
+        authUpdateSuccess,
+        authUpdateMessage
+      }, { status: 207 }) // 207 Multi-Status - partial success
     }
 
     return NextResponse.json({
       success: true,
-      user
+      user,
+      authUpdateSuccess,
+      authUpdateMessage: authUpdateMessage || 'User updated successfully'
     }, { status: 200 })
 
   } catch (error) {
@@ -153,10 +190,11 @@ export async function PATCH(
 // GET single user
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = parseInt(params.id)
+    const { id } = await params
+    const userId = parseInt(id)
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -189,10 +227,11 @@ export async function GET(
 // DELETE user
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const userId = parseInt(params.id)
+    const { id } = await params
+    const userId = parseInt(id)
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({

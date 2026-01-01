@@ -65,12 +65,10 @@ export async function POST(request: NextRequest) {
       data: {
         status: newStatus,
         reviewed_by: user.id,
-        reviewed_at: new Date(),
-        approval_date: action === 'APPROVE' ? new Date() : null,
         admin_notes: notes || null,
       },
       include: {
-        created_by_user: {
+        creator: {
           select: {
             id: true,
             name: true,

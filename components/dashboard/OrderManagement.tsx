@@ -518,7 +518,7 @@ export default function OrderManagement() {
   return (
     <div className="space-y-6">
       {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Orders</CardTitle>
@@ -527,17 +527,6 @@ export default function OrderManagement() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.pending}</div>
             <p className="text-xs text-muted-foreground">Awaiting approval</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Approved</CardTitle>
-            <Check className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.approved}</div>
-            <p className="text-xs text-muted-foreground">Ready for assignment</p>
           </CardContent>
         </Card>
 
@@ -583,15 +572,6 @@ export default function OrderManagement() {
               >
                 <Clock className="h-4 w-4" />
                 Pending ({orders.filter(o => o.status === 'PENDING').length})
-              </Button>
-              <Button
-                variant={activeTab === 'APPROVED' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setActiveTab('APPROVED')}
-                className="gap-2"
-              >
-                <Check className="h-4 w-4" />
-                Approved ({orders.filter(o => o.status === 'APPROVED').length})
               </Button>
             </div>
           </div>

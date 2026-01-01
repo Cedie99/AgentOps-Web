@@ -89,14 +89,17 @@ model User {
   attendance_records Attendance[]
   timeline_events   TimelineEvent[]
   visit_logs        VisitLog[]
-  store_assignments Store[]
-  fuel_entries      FuelEntry[]
-  announcements     Announcement[]
-  surveyor_surveys  Survey[]         @relation("SurveyorSurveys")
-  assigned_surveys  Survey[]         @relation("AssignedSurveys")
+  store_assignments          Store[]
+  fuel_entries               FuelEntry[]
+  announcements              Announcement[]
+  announcement_acknowledgments AnnouncementAcknowledgment[]
+  surveyor_surveys           Survey[]                       @relation("SurveyorSurveys")
+  assigned_surveys           Survey[]                       @relation("AssignedSurveys")
   gps_tracking_points GpsTrackingPoint[]
   created_transactions Transaction[]  @relation("TransactionCreator")
   reviewed_transactions Transaction[] @relation("TransactionReviewer")
+  assigned_deliveries DeliveryOrder[] @relation("AssignedDeliveries")
+  created_deliveries DeliveryOrder[]  @relation("CreatedDeliveries")
 
   @@index([email])
   @@index([role])
@@ -251,23 +254,42 @@ model FuelEntry {
 }
 
 model Announcement {
-  id         Int                    @id @default(autoincrement())
-  title      String
-  content    String
-  target     String                 @default("All")
-  priority   AnnouncementPriority   @default(MEDIUM)
-  timestamp  DateTime               @default(now())
-  expires_at DateTime?              @map("expires_at")
-  created_by Int                    @map("created_by")
-  created_at DateTime               @default(now()) @map("created_at")
-  updated_at DateTime               @updatedAt @map("updated_at")
+  id                      Int                          @id @default(autoincrement())
+  title                   String
+  content                 String
+  target                  String                       @default("All")
+  priority                AnnouncementPriority         @default(MEDIUM)
+  requires_acknowledgment Boolean                      @default(false) @map("requires_acknowledgment")
+  timestamp               DateTime                     @default(now())
+  expires_at              DateTime?                    @map("expires_at")
+  created_by              Int                          @map("created_by")
+  created_at              DateTime                     @default(now()) @map("created_at")
+  updated_at              DateTime                     @updatedAt @map("updated_at")
 
   // Relations
-  user User @relation(fields: [created_by], references: [id])
+  user            User                           @relation(fields: [created_by], references: [id])
+  acknowledgments AnnouncementAcknowledgment[]
 
   @@index([created_by])
   @@index([timestamp])
   @@map("announcements")
+}
+
+model AnnouncementAcknowledgment {
+  id              Int          @id @default(autoincrement())
+  announcement_id Int          @map("announcement_id")
+  user_id         Int          @map("user_id")
+  acknowledged_at DateTime     @default(now()) @map("acknowledged_at")
+  created_at      DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  announcement Announcement @relation(fields: [announcement_id], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [user_id], references: [id])
+
+  @@unique([announcement_id, user_id])
+  @@index([announcement_id])
+  @@index([user_id])
+  @@map("announcement_acknowledgments")
 }
 
 model Product {
@@ -376,10 +398,11 @@ model Transaction {
   updated_at            DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  creator   User               @relation("TransactionCreator", fields: [created_by], references: [id])
-  reviewer  User?              @relation("TransactionReviewer", fields: [reviewed_by], references: [id])
-  survey    Survey?            @relation(fields: [survey_id], references: [id])
-  items     TransactionItem[]
+  creator         User               @relation("TransactionCreator", fields: [created_by], references: [id])
+  reviewer        User?              @relation("TransactionReviewer", fields: [reviewed_by], references: [id])
+  survey          Survey?            @relation(fields: [survey_id], references: [id])
+  items           TransactionItem[]
+  delivery_orders DeliveryOrder[]
 
   @@index([created_by])
   @@index([reviewed_by])
@@ -411,4 +434,69 @@ model TransactionItem {
   @@index([transaction_id])
   @@index([product_id], map: "idx_transaction_items_product")
   @@map("transaction_items")
+}
+
+model DeliveryOrder {
+  id                       Int       @id @default(autoincrement())
+  order_number             String    @unique @map("order_number")
+  transaction_id           Int       @map("transaction_id")
+  survey_id                Int?      @map("survey_id")
+  status                   String    @default("PENDING")
+  delivery_date            DateTime  @map("delivery_date") @db.Date
+  total_items              Int?      @map("total_items")
+  items_description        String    @map("items_description")
+  store_name               String    @map("store_name")
+  delivery_address         String?   @map("delivery_address")
+  contact_person           String?   @map("contact_person")
+  contact_number           String?   @map("contact_number")
+  gps_latitude             Decimal?  @map("gps_latitude") @db.Decimal(10, 8)
+  gps_longitude            Decimal?  @map("gps_longitude") @db.Decimal(11, 8)
+  special_instructions     String?   @map("special_instructions")
+  assigned_to              Int?      @map("assigned_to")
+  assigned_at              DateTime? @map("assigned_at")
+  created_by               Int       @map("created_by")
+  delivery_notes           String?   @map("delivery_notes")
+  failure_reason           String?   @map("failure_reason")
+
+  // Time tracking
+  started_at               DateTime? @map("started_at")
+  time_out                 DateTime? @map("time_out")
+  time_in                  DateTime? @map("time_in")
+  completed_at             DateTime? @map("completed_at")
+  actual_delivery_date     DateTime? @map("actual_delivery_date") @db.Date
+  actual_delivery_time     DateTime? @map("actual_delivery_time") @db.Time
+
+  // Location tracking for start/end
+  start_latitude           Decimal?  @map("start_latitude") @db.Decimal(10, 8)
+  start_longitude          Decimal?  @map("start_longitude") @db.Decimal(11, 8)
+
+  // Odometer readings
+  km_out                   Decimal?  @map("km_out") @db.Decimal(10, 2)
+  km_out_photo_url         String?   @map("km_out_photo_url")
+  km_in                    Decimal?  @map("km_in") @db.Decimal(10, 2)
+  km_in_photo_url          String?   @map("km_in_photo_url")
+
+  // Proof of delivery
+  delivery_proof_photo_url String?   @map("delivery_proof_photo_url")
+  recipient_name           String?   @map("recipient_name")
+  recipient_signature_url  String?   @map("recipient_signature_url")
+
+  // Retry tracking
+  retry_count              Int       @default(0) @map("retry_count")
+  delivery_time_slot       String?   @map("delivery_time_slot")
+
+  created_at               DateTime  @default(now()) @map("created_at")
+  updated_at               DateTime  @default(now()) @map("updated_at")
+
+  // Relations
+  assigned_user    User? @relation("AssignedDeliveries", fields: [assigned_to], references: [id])
+  created_by_user  User  @relation("CreatedDeliveries", fields: [created_by], references: [id])
+  transaction      Transaction @relation(fields: [transaction_id], references: [id])
+
+  @@index([assigned_to])
+  @@index([created_by])
+  @@index([status])
+  @@index([delivery_date])
+  @@index([transaction_id])
+  @@map("delivery_orders")
 }

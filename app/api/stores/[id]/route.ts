@@ -9,19 +9,19 @@ export async function GET(
   try {
     const { id } = await params
     const store = await prisma.store.findUnique({
-      where: { id },
+      where: { id: parseInt(id) },
       include: {
         timeline: {
           orderBy: { timestamp: 'desc' },
           include: {
-            agent: true,
+            user: true,
             vehicle: true,
           },
         },
-        visitHistory: {
+        visit_history: {
           orderBy: { timestamp: 'desc' },
         },
-        currentAgent: true,
+        current_user: true,
       },
     })
 
@@ -46,7 +46,7 @@ export async function PATCH(
     const body = await request.json()
 
     const store = await prisma.store.update({
-      where: { id },
+      where: { id: parseInt(id) },
       data: {
         ...body,
         lastUpdated: new Date(),
@@ -68,7 +68,7 @@ export async function DELETE(
   try {
     const { id } = await params
     await prisma.store.delete({
-      where: { id },
+      where: { id: parseInt(id) },
     })
 
     return NextResponse.json({ message: 'Store deleted successfully' })
