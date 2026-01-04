@@ -26,6 +26,7 @@ import {
   FileText,
   History,
   Package,
+  Smartphone,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -59,6 +60,7 @@ const navItems: NavItem[] = [
   { id: 'vehicles', label: 'Fuel & Fleet', icon: Truck, href: '/dashboard/vehicles' },
   { id: 'attendance', label: 'Attendance', icon: Clock, href: '/dashboard/attendance' },
   { id: 'announcements', label: 'Broadcasts', icon: Megaphone, href: '/dashboard/announcements' },
+  { id: 'app-versions', label: 'App Versions', icon: Smartphone, href: '/dashboard/app-versions' },
   { id: 'users', label: 'User Management', icon: UserCog, href: '/dashboard/users' },
 ]
 

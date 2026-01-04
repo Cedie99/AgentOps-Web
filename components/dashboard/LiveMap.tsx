@@ -315,7 +315,7 @@ const LiveMap: React.FC = () => {
                 <Polyline
                   positions={gpsRoutes[selectedMapAgent].map(point => [point.latitude, point.longitude])}
                   pathOptions={{
-                    color: '#ef4444',
+                    color: '#10b981',
                     weight: 6,
                     opacity: 0.9,
                     lineJoin: 'round',
@@ -545,7 +545,7 @@ const LiveMap: React.FC = () => {
                   <div className="w-2.5 h-2.5 bg-emerald-600 rounded"></div> Visited
                </div>
                <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-500">
-                  <div className="w-2.5 h-2.5 bg-red-500 rounded-sm"></div> GPS Route
+                  <div className="w-2.5 h-2.5 bg-emerald-500 rounded-sm"></div> GPS Route
                </div>
              </div>
           </div>

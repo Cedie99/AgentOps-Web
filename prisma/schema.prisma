@@ -500,3 +500,39 @@ model DeliveryOrder {
   @@index([transaction_id])
   @@map("delivery_orders")
 }
+
+// App version control for mobile force updates
+model AppConfig {
+  id              String   @id @default(uuid()) @db.Uuid
+  platform        String   // 'android' or 'ios'
+  minimum_version String   @map("minimum_version")
+  latest_version  String   @map("latest_version")
+  force_update    Boolean  @default(false) @map("force_update")
+  update_message  String?  @map("update_message")
+  store_url       String?  @map("store_url")
+  is_active       Boolean  @default(true) @map("is_active")
+  created_at      DateTime @default(now()) @map("created_at")
+  updated_at      DateTime @updatedAt @map("updated_at")
+
+  @@unique([platform])
+  @@index([platform])
+  @@index([is_active])
+  @@map("app_config")
+}
+
+// Version change history for tracking
+model AppVersionHistory {
+  id              String   @id @default(uuid()) @db.Uuid
+  platform        String
+  version_number  String   @map("version_number")
+  change_type     String   @map("change_type") // 'minimum_updated', 'latest_updated', 'force_enabled', 'force_disabled'
+  previous_value  String?  @map("previous_value")
+  new_value       String   @map("new_value")
+  changed_by      String?  @map("changed_by") // Admin email/name
+  change_note     String?  @map("change_note")
+  created_at      DateTime @default(now()) @map("created_at")
+
+  @@index([platform])
+  @@index([created_at])
+  @@map("app_version_history")
+}

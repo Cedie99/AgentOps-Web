@@ -6,8 +6,23 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
 
-    // Check authentication
-    const { data: { session } } = await supabase.auth.getSession()
+    // Check authentication - first try session from cookies
+    let session = (await supabase.auth.getSession()).data.session
+
+    // If no session from cookies, try Authorization header (for mobile app)
+    if (!session) {
+      const authHeader = request.headers.get('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.substring(7)
+        const { data: { user }, error } = await supabase.auth.getUser(token)
+        if (error || !user) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+        // Create a minimal session object for downstream code
+        session = { user } as any
+      }
+    }
+
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

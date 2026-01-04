@@ -57,6 +57,7 @@ interface GPSPoint {
 export default function TrackingHistoryPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [selectedAgent, setSelectedAgent] = useState<number | null>(null)
+  const [selectedRole, setSelectedRole] = useState<string>('ALL')
   const [agents, setAgents] = useState<Agent[]>([])
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([])
   const [gpsRoute, setGpsRoute] = useState<GPSPoint[]>([])
@@ -163,6 +164,11 @@ export default function TrackingHistoryPage() {
   const selectedAttendance = attendanceRecords.find(r => r.user_id === selectedAgent)
   const selectedAgentData = agents.find(a => a.id === selectedAgent)
 
+  // Filter agents by role
+  const filteredAgents = selectedRole === 'ALL'
+    ? agents
+    : agents.filter(a => a.role === selectedRole)
+
   const mapCenter: [number, number] = useMemo(() => {
     if (gpsRoute.length > 0) {
       return [gpsRoute[0].latitude, gpsRoute[0].longitude]
@@ -194,7 +200,7 @@ export default function TrackingHistoryPage() {
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Date Picker */}
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-2">Select Date</label>
@@ -210,6 +216,29 @@ export default function TrackingHistoryPage() {
             </div>
           </div>
 
+          {/* Role Filter */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-2">Filter by Role</label>
+            <Select
+              value={selectedRole}
+              onValueChange={(value) => {
+                setSelectedRole(value)
+                setSelectedAgent(null) // Reset agent selection when role changes
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Roles" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Roles</SelectItem>
+                <SelectItem value="SURVEYOR">Surveyor</SelectItem>
+                <SelectItem value="SALES">Sales</SelectItem>
+                <SelectItem value="DELIVERY">Delivery</SelectItem>
+                <SelectItem value="COLLECTOR">Collector</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Agent Selector */}
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-2">Select Agent</label>
@@ -221,11 +250,17 @@ export default function TrackingHistoryPage() {
                 <SelectValue placeholder="Choose an agent..." />
               </SelectTrigger>
               <SelectContent>
-                {agents.map(agent => (
-                  <SelectItem key={agent.id} value={agent.id.toString()}>
-                    {agent.name} - {agent.role}
-                  </SelectItem>
-                ))}
+                {filteredAgents.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-slate-500">
+                    No {selectedRole === 'ALL' ? 'agents' : selectedRole.toLowerCase()} found
+                  </div>
+                ) : (
+                  filteredAgents.map(agent => (
+                    <SelectItem key={agent.id} value={agent.id.toString()}>
+                      {agent.name} - {agent.role}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -275,21 +310,28 @@ export default function TrackingHistoryPage() {
                 />
               )}
 
-              {/* Start Marker */}
+              {/* Start Marker - or Single Point if user didn't move */}
               {gpsRoute.length > 0 && (
                 <Marker position={[gpsRoute[0].latitude, gpsRoute[0].longitude]} icon={startIcon}>
                   <Popup>
                     <div className="p-2">
-                      <h3 className="font-bold text-sm">Start Point</h3>
+                      <h3 className="font-bold text-sm">
+                        {gpsRoute.length === 1 ? 'Location (No Movement Detected)' : 'Start Point'}
+                      </h3>
                       <p className="text-xs text-slate-600">
                         {new Date(gpsRoute[0].timestamp).toLocaleTimeString()}
                       </p>
+                      {gpsRoute.length === 1 && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          User stayed at this location during their shift
+                        </p>
+                      )}
                     </div>
                   </Popup>
                 </Marker>
               )}
 
-              {/* End Marker */}
+              {/* End Marker - only show if there's actual movement */}
               {gpsRoute.length > 1 && (
                 <Marker
                   position={[gpsRoute[gpsRoute.length - 1].latitude, gpsRoute[gpsRoute.length - 1].longitude]}
@@ -351,14 +393,29 @@ export default function TrackingHistoryPage() {
                     <span className="font-bold text-indigo-600">{gpsRoute.length}</span>
                   </div>
 
-                  {selectedAttendance.total_distance && (
+                  {gpsRoute.length === 1 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded p-2 mt-2">
+                      <p className="text-xs text-amber-700">
+                        ⚠️ No movement detected - User remained at one location
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedAttendance.total_distance && selectedAttendance.total_distance > 0 ? (
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-slate-600">Distance</span>
                       <span className="font-bold text-indigo-600">
                         {selectedAttendance.total_distance.toFixed(2)} km
                       </span>
                     </div>
-                  )}
+                  ) : gpsRoute.length > 1 ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-600">Distance</span>
+                      <span className="font-bold text-slate-400">
+                        Calculating...
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ) : (
