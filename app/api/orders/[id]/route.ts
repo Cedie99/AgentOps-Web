@@ -38,7 +38,6 @@ export async function GET(
             email: true
           }
         },
-        items: true,
         survey: {
           select: {
             id: true,

@@ -95,15 +95,9 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // Get transaction items for the delivery order
-      const transactionItems = await prisma.transactionItem.findMany({
-        where: { transaction_id: orderId }
-      })
-
-      const totalItems = transactionItems.reduce((sum, item) => sum + item.quantity, 0)
-      const itemsDescription = transactionItems
-        .map(item => `${item.product_name} (${item.quantity})`)
-        .join(', ')
+      // Get transaction items for the delivery order (items removed from schema)
+      const totalItems = 0
+      const itemsDescription = 'Items not tracked'
 
       // Generate delivery order number
       const year = new Date().getFullYear()

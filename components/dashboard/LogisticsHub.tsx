@@ -222,7 +222,7 @@ const LogisticsHub: React.FC = () => {
   // Determine what to show based on active tab
   const showOrders = activeTab === 'delivery'
   const showCompleted = activeTab === 'completed'
-  const showFleet = activeTab === 'fleet'
+  // const showFleet = activeTab === 'fleet' // Not used
   const queue = activeTab === 'delivery' ? orders : []
 
   return (
@@ -267,28 +267,26 @@ const LogisticsHub: React.FC = () => {
       )}
 
       <div className="space-y-4">
-        {!showFleet && (
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              {activeTab === 'completed' ? 'Completed Deliveries' : 'Pending Assignments'}
-            </h3>
-            {activeTab === 'delivery' && (
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                  <span className="text-xs font-medium text-muted-foreground">
-                    HIGH PRIORITY
-                  </span>
-                </div>
-                <Button variant="link" size="sm" className="h-auto p-0 gap-1">
-                  AREA GROUPING <Navigation className="w-3 h-3" />
-                </Button>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            {activeTab === 'completed' ? 'Completed Deliveries' : 'Pending Assignments'}
+          </h3>
+          {activeTab === 'delivery' && (
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                <span className="text-xs font-medium text-muted-foreground">
+                  HIGH PRIORITY
+                </span>
               </div>
-            )}
-          </div>
-        )}
+              <Button variant="link" size="sm" className="h-auto p-0 gap-1">
+                AREA GROUPING <Navigation className="w-3 h-3" />
+              </Button>
+            </div>
+          )}
+        </div>
 
-        {showFleet ? (
+        {false ? (
             // Fleet Status View
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {/* Summary Cards */}

@@ -72,17 +72,6 @@ export async function GET(request: NextRequest) {
               address: true,
               customer_status: true
             }
-          },
-          items: {
-            select: {
-              id: true,
-              product_name: true,
-              product_code: true,
-              quantity: true,
-              unit_price: true,
-              total_amount: true,
-              unit_of_measure: true
-            }
           }
         },
         orderBy: {

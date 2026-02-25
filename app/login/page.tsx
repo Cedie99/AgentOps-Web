@@ -6,8 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { LayoutDashboard } from 'lucide-react'
-import Link from 'next/link'
+import { BackgroundRippleEffect } from '@/components/ui/background-ripple-effect'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -40,17 +39,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-slate-50 p-4">
-      <Card className="w-full max-w-md shadow-xl">
+    <div className="relative min-h-screen flex items-center justify-center bg-background p-4 overflow-hidden">
+      <BackgroundRippleEffect rows={20} cols={40} cellSize={50} />
+      <Card className="w-full max-w-md shadow-xl border-border relative z-10">
         <CardHeader className="space-y-4 text-center">
-          <div className="flex justify-center">
-            <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-200">
-              <LayoutDashboard className="w-8 h-8 text-white" />
-            </div>
-          </div>
           <div>
-            <CardTitle className="text-2xl font-bold">
-              Welcome to <span className="text-emerald-600">AgentOps</span>
+            <CardTitle className="text-2xl font-bold text-foreground">
+              Welcome to <span className="text-emerald-600 dark:text-emerald-400">AgentOps</span>
             </CardTitle>
             <CardDescription className="text-base mt-2">
               Sign in to access your dashboard
@@ -60,13 +55,13 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             {error && (
-              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm">
                 {error}
               </div>
             )}
 
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium text-slate-700">
+              <label htmlFor="email" className="text-sm font-medium text-foreground">
                 Email
               </label>
               <Input
@@ -76,12 +71,12 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full"
+                className="w-full h-12 px-4"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium text-slate-700">
+              <label htmlFor="password" className="text-sm font-medium text-foreground">
                 Password
               </label>
               <Input
@@ -91,35 +86,18 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full"
+                className="w-full h-12 px-4"
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full bg-emerald-600 hover:bg-emerald-700"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white"
               disabled={loading}
             >
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
-
-          <div className="mt-6 text-center text-sm">
-            <p className="text-slate-600">
-              Don&apos;t have an account?{' '}
-              <Link href="/signup" className="text-emerald-600 font-semibold hover:underline">
-                Sign up
-              </Link>
-            </p>
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-slate-200">
-            <p className="text-xs text-center text-slate-500">
-              Demo credentials for testing (if Supabase auth is not set up):
-              <br />
-              <span className="font-mono mt-1 block">admin@agentops.com / demo123</span>
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>

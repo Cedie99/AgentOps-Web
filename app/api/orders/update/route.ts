@@ -44,57 +44,29 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Update the transaction and its items in a transaction
-    const updatedOrder = await prisma.$transaction(async (tx) => {
-      // Delete existing items
-      await tx.transactionItem.deleteMany({
-        where: { transaction_id: orderId }
-      })
-
-      // Create new items with proper type conversion
-      // Prisma accepts numbers and strings for Decimal fields
-      await tx.transactionItem.createMany({
-        data: items.map((item: any) => ({
-          transaction_id: orderId,
-          product_name: item.product_name,
-          product_code: item.product_code || null,
-          quantity: parseInt(item.quantity),
-          unit_price: parseFloat(item.unit_price),
-          subtotal: parseFloat(item.total_amount), // subtotal before discounts
-          discount_percent: 0,
-          discount_amount: 0,
-          total_amount: parseFloat(item.total_amount),
-          unit_of_measure: item.unit_of_measure || null
-        }))
-      })
-
-      // Update the transaction with proper type conversion
-      const updated = await tx.transaction.update({
-        where: { id: orderId },
-        data: {
-          total_amount: parseFloat(total_amount),
-          payment_terms: payment_terms,
-          delivery_date: delivery_date ? new Date(delivery_date) : null,
-          updated_at: new Date()
+    // Update the transaction
+    const updatedOrder = await prisma.transaction.update({
+      where: { id: orderId },
+      data: {
+        total_amount: parseFloat(total_amount),
+        payment_terms: payment_terms,
+        delivery_date: delivery_date ? new Date(delivery_date) : null,
+        updated_at: new Date()
+      },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
         },
-        include: {
-          creator: {
-            select: {
-              id: true,
-              name: true,
-              email: true
-            }
-          },
-          items: true,
-          survey: {
-            select: {
-              customer_status: true
-            }
+        survey: {
+          select: {
+            customer_status: true
           }
         }
-      })
-
-      return updated
+      }
     })
 
     return NextResponse.json({

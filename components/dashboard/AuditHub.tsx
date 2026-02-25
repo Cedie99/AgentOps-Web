@@ -484,7 +484,7 @@ const AuditHub: React.FC = () => {
                         {header.isPlaceholder
                           ? null
                           : flexRender(
-                              header.column.columnDef.header,
+                              header.column.columnDef.header as any,
                               header.getContext()
                             )}
                       </TableHead>
@@ -499,7 +499,7 @@ const AuditHub: React.FC = () => {
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>
                           {flexRender(
-                            cell.column.columnDef.cell,
+                            cell.column.columnDef.cell as any,
                             cell.getContext()
                           )}
                         </TableCell>
