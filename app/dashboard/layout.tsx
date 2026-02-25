@@ -67,10 +67,27 @@ const navItems: NavItem[] = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string } | null>(null)
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
   const { theme, setTheme } = useTheme()
+
+  // Fetch current user on mount
+  React.useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetch('/api/users/me')
+        if (response.ok) {
+          const data = await response.json()
+          setCurrentUser(data)
+        }
+      } catch (error) {
+        console.error('Error fetching current user:', error)
+      }
+    }
+    fetchCurrentUser()
+  }, [])
 
   const handleLogout = async () => {
     try {
@@ -79,6 +96,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     } catch (error) {
       console.error('Error logging out:', error)
     }
+  }
+
+  // Get user initials
+  const getUserInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+  }
+
+  // Format role for display
+  const formatRole = (role: string) => {
+    return role
+      .split('_')
+      .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+      .join(' ')
   }
 
   return (
@@ -137,11 +172,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <button className="w-full p-4 bg-muted rounded-2xl hover:bg-muted/80 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center text-emerald-700 dark:text-emerald-400 font-bold">
-                      SA
+                      {currentUser ? getUserInitials(currentUser.name) : 'U'}
                     </div>
                     <div className="text-left">
-                      <p className="text-sm font-bold text-foreground">Alex Admin</p>
-                      <p className="text-xs text-muted-foreground font-medium">Super Admin</p>
+                      <p className="text-sm font-bold text-foreground">
+                        {currentUser?.name || 'Loading...'}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-medium">
+                        {currentUser ? formatRole(currentUser.role) : 'Loading...'}
+                      </p>
                     </div>
                   </div>
                 </button>

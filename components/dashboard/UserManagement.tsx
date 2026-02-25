@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import {
   UserPlus,
   Search,
@@ -61,6 +62,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Switch } from '@/components/ui/switch'
 
 // All user roles (unified)
 type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'SURVEYOR' | 'SALES' | 'DELIVERY' | 'COLLECTOR'
@@ -70,7 +72,7 @@ interface User {
   name: string
   email: string
   role: UserRole
-  status: string
+  status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
   created_at: string
 }
 
@@ -96,6 +98,7 @@ const getRoleBadgeColor = (role: UserRole) => {
 const UserManagement: React.FC = () => {
   // Local state
   const [users, setUsers] = useState<User[]>([])
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null)
   const [globalFilter, setGlobalFilter] = useState('')
   const [filterBy, setFilterBy] = useState<'all' | 'name' | 'email' | 'role'>('all')
   const [isLoading, setIsLoading] = useState(false)
@@ -107,20 +110,64 @@ const UserManagement: React.FC = () => {
     name: '',
     email: '',
     password: '',
-    role: 'SALES' as UserRole
+    role: 'SALES' as UserRole,
+    status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
   })
 
-  // Fetch users on component mount
+  // Fetch current user role and users on component mount
   useEffect(() => {
+    fetchCurrentUserRole()
     fetchUsers()
   }, [])
 
+  const fetchCurrentUserRole = async () => {
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session?.user?.email) {
+        console.error('No session or email found')
+        return
+      }
+
+      console.log('Fetching role for email:', session.user.email)
+
+      const response = await fetch('/api/users/me')
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Failed to fetch current user:', errorData)
+        throw new Error('Failed to fetch current user')
+      }
+      const data = await response.json()
+      console.log('Current user data:', data)
+      setCurrentUserRole(data.role)
+    } catch (err) {
+      console.error('Error fetching current user role:', err)
+    }
+  }
+
   const fetchUsers = async () => {
     try {
+      // First, get current user's role from session
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+
       const response = await fetch('/api/users')
       if (!response.ok) throw new Error('Failed to fetch users')
       const data = await response.json()
-      setUsers(data.users || data)
+      const fetchedUsers = data.users || data
+      setUsers(fetchedUsers)
+
+      // Find current user in the list and set their role
+      if (session?.user?.email) {
+        const currentUser = fetchedUsers.find(
+          (u: User) => u.email.toLowerCase() === session.user.email!.toLowerCase()
+        )
+        if (currentUser) {
+          console.log('Found current user in list:', currentUser)
+          setCurrentUserRole(currentUser.role)
+        }
+      }
     } catch (err) {
       console.error('Error fetching users:', err)
       setError('Failed to load users')
@@ -146,7 +193,7 @@ const UserManagement: React.FC = () => {
       }
 
       // Reset form and close modal
-      setFormData({ name: '', email: '', password: '', role: 'SALES' })
+      setFormData({ name: '', email: '', password: '', role: 'SALES', status: 'ACTIVE' })
       setIsCreateDialogOpen(false)
 
       // Refresh users list
@@ -174,6 +221,7 @@ const UserManagement: React.FC = () => {
           name: formData.name,
           email: formData.email,
           role: formData.role,
+          status: formData.status,
           ...(formData.password && { password: formData.password })
         })
       })
@@ -185,7 +233,7 @@ const UserManagement: React.FC = () => {
       }
 
       // Reset form and close modal
-      setFormData({ name: '', email: '', password: '', role: 'SALES' })
+      setFormData({ name: '', email: '', password: '', role: 'SALES', status: 'ACTIVE' })
       setIsEditDialogOpen(false)
       setEditingUser(null)
 
@@ -205,7 +253,8 @@ const UserManagement: React.FC = () => {
       name: user.name,
       email: user.email,
       password: '',
-      role: user.role
+      role: user.role,
+      status: user.status
     })
     setIsEditDialogOpen(true)
   }
@@ -246,12 +295,16 @@ const UserManagement: React.FC = () => {
     }),
     columnHelper.accessor('status', {
       header: 'Status',
-      cell: (info) => (
-        <div className="inline-flex items-center gap-2 text-sm font-medium text-green-600">
-          <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-          <span>{info.getValue()}</span>
-        </div>
-      ),
+      cell: (info) => {
+        const status = info.getValue()
+        const isActive = status === 'ACTIVE'
+        return (
+          <div className={`inline-flex items-center gap-2 text-sm font-medium ${isActive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            <div className={`h-2 w-2 rounded-full ${isActive ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+            <span>{status}</span>
+          </div>
+        )
+      },
     }),
     columnHelper.accessor('created_at', {
       header: 'Created',
@@ -270,6 +323,12 @@ const UserManagement: React.FC = () => {
       header: 'Actions',
       cell: (info) => {
         const user = info.row.original
+
+        // Only show actions for SUPER_ADMIN
+        if (currentUserRole !== 'SUPER_ADMIN') {
+          return null
+        }
+
         return (
           <div className="flex justify-end">
             <DropdownMenu>
@@ -338,14 +397,16 @@ const UserManagement: React.FC = () => {
             Manage administrative access and system roles
           </p>
         </div>
-        <Button
-          onClick={() => setIsCreateDialogOpen(true)}
-          size="lg"
-          className="bg-emerald-600 dark:bg-emerald-700 hover:bg-emerald-700 dark:hover:bg-emerald-800 text-white"
-        >
-          <UserPlus className="mr-2 h-4 w-4" />
-          Create New User
-        </Button>
+        {currentUserRole === 'SUPER_ADMIN' && (
+          <Button
+            onClick={() => setIsCreateDialogOpen(true)}
+            size="lg"
+            className="bg-emerald-600 dark:bg-emerald-700 hover:bg-emerald-700 dark:hover:bg-emerald-800 text-white"
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            Create New User
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -523,7 +584,7 @@ const UserManagement: React.FC = () => {
                     <SelectItem value="SURVEYOR">Surveyor (Mobile)</SelectItem>
                     <SelectItem value="DELIVERY">Delivery (Mobile)</SelectItem>
                     <SelectItem value="COLLECTOR">Collector (Mobile)</SelectItem>
-                    <SelectItem value="ADMIN">Admin (Web + Mobile)</SelectItem>
+                    <SelectItem value="ADMIN">Admin (Web Only)</SelectItem>
                     <SelectItem value="SUPER_ADMIN">Super Admin (Web Only)</SelectItem>
                   </SelectContent>
                 </Select>
@@ -540,7 +601,7 @@ const UserManagement: React.FC = () => {
                 onClick={() => {
                   setIsCreateDialogOpen(false)
                   setError('')
-                  setFormData({ name: '', email: '', password: '', role: 'SALES' })
+                  setFormData({ name: '', email: '', password: '', role: 'SALES', status: 'ACTIVE' })
                 }}
                 disabled={isLoading}
               >
@@ -633,10 +694,33 @@ const UserManagement: React.FC = () => {
                     <SelectItem value="SURVEYOR">Surveyor (Mobile)</SelectItem>
                     <SelectItem value="DELIVERY">Delivery (Mobile)</SelectItem>
                     <SelectItem value="COLLECTOR">Collector (Mobile)</SelectItem>
-                    <SelectItem value="ADMIN">Admin (Web + Mobile)</SelectItem>
+                    <SelectItem value="ADMIN">Admin (Web Only)</SelectItem>
                     <SelectItem value="SUPER_ADMIN">Super Admin (Web Only)</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="edit-status">Account Status</Label>
+                <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+                  <div className="space-y-0.5">
+                    <div className="font-medium text-sm">
+                      {formData.status === 'ACTIVE' ? 'Active Account' : 'Inactive Account'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {formData.status === 'ACTIVE'
+                        ? 'User can log in and access the system'
+                        : 'User cannot log in to their account'}
+                    </div>
+                  </div>
+                  <Switch
+                    id="edit-status"
+                    checked={formData.status === 'ACTIVE'}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, status: checked ? 'ACTIVE' : 'INACTIVE' })
+                    }
+                  />
+                </div>
               </div>
             </div>
 
@@ -648,7 +732,7 @@ const UserManagement: React.FC = () => {
                   setIsEditDialogOpen(false)
                   setError('')
                   setEditingUser(null)
-                  setFormData({ name: '', email: '', password: '', role: 'SALES' })
+                  setFormData({ name: '', email: '', password: '', role: 'SALES', status: 'ACTIVE' })
                 }}
                 disabled={isLoading}
               >

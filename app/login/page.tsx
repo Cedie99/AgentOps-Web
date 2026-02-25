@@ -29,6 +29,21 @@ export default function LoginPage() {
 
       if (error) throw error
 
+      // Check if user is active in the database
+      const userCheckResponse = await fetch('/api/users/check-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      })
+
+      const userData = await userCheckResponse.json()
+
+      if (!userCheckResponse.ok || userData.status !== 'ACTIVE') {
+        // Sign out the user
+        await supabase.auth.signOut()
+        throw new Error('Your account has been deactivated. Please contact an administrator.')
+      }
+
       router.push('/dashboard')
       router.refresh()
     } catch (error: any) {

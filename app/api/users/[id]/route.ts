@@ -23,12 +23,20 @@ export async function PATCH(
     const { id } = await params
     const userId = parseInt(id)
     const body = await request.json()
-    const { name, email, password, role } = body
+    const { name, email, password, role, status } = body
 
     // Validate required fields
     if (!name || !email || !role) {
       return NextResponse.json(
         { error: 'Missing required fields: name, email, and role are required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate status if provided
+    if (status && !['ACTIVE', 'INACTIVE', 'SUSPENDED'].includes(status)) {
+      return NextResponse.json(
+        { error: 'Invalid status. Must be ACTIVE, INACTIVE, or SUSPENDED' },
         { status: 400 }
       )
     }
@@ -76,6 +84,11 @@ export async function PATCH(
       name,
       email,
       role,
+    }
+
+    // Update status if provided
+    if (status) {
+      updateData.status = status
     }
 
     // If role changed to field agent, add agent_status
