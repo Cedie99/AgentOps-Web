@@ -29,7 +29,7 @@ export default function LoginPage() {
 
       if (error) throw error
 
-      // Check if user is active in the database
+      // Check if user is active and has web access
       const userCheckResponse = await fetch('/api/users/check-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -38,10 +38,17 @@ export default function LoginPage() {
 
       const userData = await userCheckResponse.json()
 
+      // Check if user status is ACTIVE
       if (!userCheckResponse.ok || userData.status !== 'ACTIVE') {
-        // Sign out the user
         await supabase.auth.signOut()
         throw new Error('Your account has been deactivated. Please contact an administrator.')
+      }
+
+      // Check if user role has web access (only ADMIN and SUPER_ADMIN)
+      const webOnlyRoles = ['ADMIN', 'SUPER_ADMIN']
+      if (!webOnlyRoles.includes(userData.role)) {
+        await supabase.auth.signOut()
+        throw new Error('This account is for mobile app only. Please use the AgentOps mobile application to log in.')
       }
 
       router.push('/dashboard')

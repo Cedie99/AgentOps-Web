@@ -49,6 +49,42 @@ export default async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
 
+    // Check role-based access for dashboard routes
+    if (user && request.nextUrl.pathname.startsWith('/dashboard')) {
+      try {
+        // Fetch user role from the API
+        const apiUrl = new URL('/api/users/check-status', request.url)
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: user.email })
+        })
+
+        if (response.ok) {
+          const userData = await response.json()
+
+          // Only ADMIN and SUPER_ADMIN can access web dashboard
+          const webOnlyRoles = ['ADMIN', 'SUPER_ADMIN']
+          if (!webOnlyRoles.includes(userData.role)) {
+            // Sign out mobile-only users and redirect to login
+            await supabase.auth.signOut()
+            return NextResponse.redirect(new URL('/login', request.url))
+          }
+
+          // Check if user is active
+          if (userData.status !== 'ACTIVE') {
+            await supabase.auth.signOut()
+            return NextResponse.redirect(new URL('/login', request.url))
+          }
+        }
+      } catch (error) {
+        console.error('Error checking user role in proxy:', error)
+        // On error, allow through (will be caught by login page check)
+      }
+    }
+
     // Redirect authenticated users away from login/signup
     if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup')) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
