@@ -7,10 +7,6 @@ export async function GET() {
     const vehicles = await prisma.vehicle.findMany({
       include: {
         users: true,
-        fuel_entries: {
-          orderBy: { date: 'desc' },
-          take: 5,
-        },
       },
       orderBy: { model: 'asc' },
     })
