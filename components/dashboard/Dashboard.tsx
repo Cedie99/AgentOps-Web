@@ -2,41 +2,41 @@
 
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { 
-  ClipboardCheck, 
-  ShoppingBag, 
-  Truck, 
-  Wallet, 
-  Users, 
-  Car, 
-  ArrowUpRight, 
-  Fuel 
+import {
+  ClipboardCheck,
+  ShoppingBag,
+  Truck,
+  Wallet,
+  Users,
+  Car,
+  ArrowUpRight,
+  TrendingUp
 } from 'lucide-react';
 
 const data = [
-  { name: 'Mon', fuel: 400, visits: 240 },
-  { name: 'Tue', fuel: 300, visits: 139 },
-  { name: 'Wed', fuel: 200, visits: 980 },
-  { name: 'Thu', fuel: 278, visits: 390 },
-  { name: 'Fri', fuel: 189, visits: 480 },
-  { name: 'Sat', fuel: 239, visits: 380 },
-  { name: 'Sun', fuel: 349, visits: 430 },
+  { name: 'Mon', surveys: 42, visits: 35, deliveries: 18 },
+  { name: 'Tue', surveys: 38, visits: 41, deliveries: 22 },
+  { name: 'Wed', surveys: 55, visits: 38, deliveries: 25 },
+  { name: 'Thu', surveys: 48, visits: 45, deliveries: 19 },
+  { name: 'Fri', surveys: 52, visits: 42, deliveries: 28 },
+  { name: 'Sat', surveys: 35, visits: 30, deliveries: 15 },
+  { name: 'Sun', surveys: 28, visits: 25, deliveries: 12 },
 ];
 
 const KPICard = ({ title, value, icon: Icon, color, trend }: any) => (
-  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+  <div className="bg-card p-6 rounded-2xl border shadow-sm hover:shadow-md transition-shadow">
     <div className="flex items-center justify-between mb-4">
       <div className={`p-3 rounded-xl ${color}`}>
         <Icon className="w-6 h-6 text-white" />
       </div>
       {trend && (
-        <span className="flex items-center text-emerald-600 text-sm font-medium">
+        <span className="flex items-center text-emerald-600 dark:text-emerald-400 text-sm font-medium">
           {trend} <ArrowUpRight className="w-4 h-4 ml-1" />
         </span>
       )}
     </div>
-    <p className="text-slate-500 text-sm font-medium">{title}</p>
-    <h3 className="text-2xl font-bold mt-1 text-slate-800">{value}</h3>
+    <p className="text-muted-foreground text-sm font-medium">{title}</p>
+    <h3 className="text-2xl font-bold mt-1 text-foreground">{value}</h3>
   </div>
 );
 
@@ -45,11 +45,11 @@ const Dashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Operations Overview</h1>
-          <p className="text-slate-500">Real-time status of your field agents and store workflow.</p>
+          <h1 className="text-2xl font-bold text-foreground">Operations Overview</h1>
+          <p className="text-muted-foreground">Real-time status of your field agents and store workflow.</p>
         </div>
         <div className="flex gap-3">
-          <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium">
+          <button className="px-4 py-2 bg-emerald-600 dark:bg-emerald-700 text-white rounded-lg hover:bg-emerald-700 dark:hover:bg-emerald-800 transition-colors font-medium">
             Generate Report
           </button>
         </div>
@@ -66,10 +66,10 @@ const Dashboard: React.FC = () => {
 
       {/* Analytics Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="lg:col-span-2 bg-card p-6 rounded-2xl border shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-800">Fuel & Trip Trends</h3>
-            <select className="bg-slate-50 border border-slate-200 text-sm rounded-lg px-3 py-1 outline-none">
+            <h3 className="text-lg font-bold text-foreground">Activity Trends</h3>
+            <select className="bg-muted border text-sm rounded-lg px-3 py-1 outline-none text-foreground">
               <option>Last 7 Days</option>
               <option>Last 30 Days</option>
             </select>
@@ -78,68 +78,77 @@ const Dashboard: React.FC = () => {
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data}>
                 <defs>
-                  <linearGradient id="colorFuel" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
+                  <linearGradient id="colorSurveys" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                   </linearGradient>
+                  <linearGradient id="colorVisits" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorDeliveries" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                  </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="dark:stroke-slate-800" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
                 <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'}}
                 />
-                <Area type="monotone" dataKey="fuel" stroke="#10b981" fillOpacity={1} fill="url(#colorFuel)" strokeWidth={2} />
-                <Area type="monotone" dataKey="visits" stroke="#059669" fillOpacity={0.1} fill="#059669" strokeWidth={2} />
+                <Area type="monotone" dataKey="surveys" stroke="#10b981" fillOpacity={1} fill="url(#colorSurveys)" strokeWidth={2} />
+                <Area type="monotone" dataKey="visits" stroke="#3b82f6" fillOpacity={1} fill="url(#colorVisits)" strokeWidth={2} />
+                <Area type="monotone" dataKey="deliveries" stroke="#f59e0b" fillOpacity={1} fill="url(#colorDeliveries)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Active Resources</h3>
+        <div className="bg-card p-6 rounded-2xl border shadow-sm">
+          <h3 className="text-lg font-bold text-foreground mb-6">Active Resources</h3>
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+                <div className="p-2 bg-emerald-50 dark:bg-emerald-950 rounded-lg text-emerald-600 dark:text-emerald-400">
                   <Users className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">Active Agents</p>
-                  <p className="text-xs text-slate-500">Currently on field</p>
+                  <p className="text-sm font-semibold text-foreground">Active Agents</p>
+                  <p className="text-xs text-muted-foreground">Currently on field</p>
                 </div>
               </div>
-              <span className="text-lg font-bold text-slate-800">42/50</span>
+              <span className="text-lg font-bold text-foreground">42/50</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+                <div className="p-2 bg-emerald-50 dark:bg-emerald-950 rounded-lg text-emerald-600 dark:text-emerald-400">
                   <Car className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">Vehicles in Motion</p>
-                  <p className="text-xs text-slate-500">Real-time GPS</p>
+                  <p className="text-sm font-semibold text-foreground">Vehicles in Motion</p>
+                  <p className="text-xs text-muted-foreground">Real-time GPS</p>
                 </div>
               </div>
-              <span className="text-lg font-bold text-slate-800">38/45</span>
+              <span className="text-lg font-bold text-foreground">38/45</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-50 rounded-lg text-amber-600">
-                  <Fuel className="w-5 h-5" />
+                <div className="p-2 bg-amber-50 dark:bg-amber-950 rounded-lg text-amber-600 dark:text-amber-400">
+                  <TrendingUp className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">Avg Fuel Efficiency</p>
-                  <p className="text-xs text-slate-500">KM/Liter across fleet</p>
+                  <p className="text-sm font-semibold text-foreground">Avg Response Time</p>
+                  <p className="text-xs text-muted-foreground">Hours per task</p>
                 </div>
               </div>
-              <span className="text-lg font-bold text-slate-800">14.2</span>
+              <span className="text-lg font-bold text-foreground">2.4h</span>
             </div>
 
-            <div className="mt-8 pt-8 border-t border-slate-100">
+            <div className="mt-8 pt-8 border-t">
               <div className="flex items-center justify-between mb-4">
-                <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Top Performers</h4>
-                <button className="text-xs text-emerald-600 font-medium">View All</button>
+                <h4 className="text-sm font-bold text-foreground uppercase tracking-wider">Top Performers</h4>
+                <button className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">View All</button>
               </div>
               <div className="space-y-4">
                 {[
@@ -149,15 +158,15 @@ const Dashboard: React.FC = () => {
                 ].map((p, i) => (
                   <div key={i} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground">
                         {p.name.charAt(0)}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-slate-800">{p.name}</p>
-                        <p className="text-xs text-slate-500">{p.role}</p>
+                        <p className="text-sm font-medium text-foreground">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">{p.role}</p>
                       </div>
                     </div>
-                    <span className="text-sm font-bold text-slate-700">{p.count} tasks</span>
+                    <span className="text-sm font-bold text-foreground">{p.count} tasks</span>
                   </div>
                 ))}
               </div>

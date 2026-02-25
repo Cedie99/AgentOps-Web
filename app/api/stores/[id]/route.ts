@@ -11,13 +11,6 @@ export async function GET(
     const store = await prisma.store.findUnique({
       where: { id: parseInt(id) },
       include: {
-        timeline: {
-          orderBy: { timestamp: 'desc' },
-          include: {
-            user: true,
-            vehicle: true,
-          },
-        },
         visit_history: {
           orderBy: { timestamp: 'desc' },
         },

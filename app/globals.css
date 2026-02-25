@@ -122,4 +122,17 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Leaflet map dark mode support */
+  .leaflet-container {
+    background: hsl(var(--muted)) !important;
+  }
+
+  .leaflet-tile-pane {
+    filter: brightness(0.9);
+  }
+
+  .dark .leaflet-tile-pane {
+    filter: brightness(0.7) contrast(1.1);
+  }
 }

@@ -3,9 +3,9 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useTheme } from 'next-themes'
 import {
   LayoutDashboard,
-  Store as StoreIcon,
   Map as MapIcon,
   Users,
   Truck,
@@ -17,7 +17,6 @@ import {
   Bell,
   Search,
   UserCog,
-  ClipboardCheck,
   ShoppingBag,
   PackageCheck,
   ShieldCheck,
@@ -27,6 +26,10 @@ import {
   History,
   Package,
   Smartphone,
+  MapPin,
+  Sun,
+  Moon,
+  Activity,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -37,6 +40,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Button } from '@/components/ui/button'
 
 type NavItem = {
   id: string
@@ -47,17 +51,14 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
-  { id: 'stores', label: 'Store Ops', icon: StoreIcon, href: '/dashboard/stores' },
   { id: 'map', label: 'Live Map', icon: MapIcon, href: '/dashboard/map' },
   { id: 'history', label: 'GPS History', icon: History, href: '/dashboard/tracking/history' },
-  { id: 'surveyors', label: 'Surveyor Hub', icon: ClipboardCheck, href: '/dashboard/surveyors' },
   { id: 'surveys', label: 'Surveys', icon: FileText, href: '/dashboard/surveys' },
   { id: 'sales', label: 'Sales Hub', icon: ShoppingBag, href: '/dashboard/sales' },
-  { id: 'products', label: 'Products', icon: Package, href: '/dashboard/products' },
+  { id: 'sales-visits', label: 'Sales Visits', icon: MapPin, href: '/dashboard/sales-visits' },
+  { id: 'sales-activities', label: 'Sales Activities', icon: Activity, href: '/dashboard/sales-activities' },
   { id: 'logistics', label: 'Logistics Hub', icon: PackageCheck, href: '/dashboard/logistics' },
   { id: 'audit', label: 'Audit Hub', icon: ShieldCheck, href: '/dashboard/audit' },
-  { id: 'agents', label: 'Fleet Assignment', icon: Users, href: '/dashboard/agents' },
-  { id: 'vehicles', label: 'Fuel & Fleet', icon: Truck, href: '/dashboard/vehicles' },
   { id: 'attendance', label: 'Attendance', icon: Clock, href: '/dashboard/attendance' },
   { id: 'announcements', label: 'Broadcasts', icon: Megaphone, href: '/dashboard/announcements' },
   { id: 'app-versions', label: 'App Versions', icon: Smartphone, href: '/dashboard/app-versions' },
@@ -69,6 +70,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const { theme, setTheme } = useTheme()
 
   const handleLogout = async () => {
     try {
@@ -80,26 +82,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex overflow-hidden">
+    <div className="min-h-screen bg-background flex overflow-hidden">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-card border-r border-border transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="h-full flex flex-col">
           <div className="p-6 flex items-center justify-between">
             <Link href="/dashboard" className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200">
+              <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200 dark:shadow-emerald-900/20">
                 <LayoutDashboard className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+              <h1 className="text-xl font-bold text-foreground tracking-tight">
                 Agent<span className="text-emerald-600">Ops</span>
               </h1>
             </Link>
             <button
               onClick={() => setIsSidebarOpen(false)}
-              className="lg:hidden p-2 text-slate-400 hover:text-slate-600"
+              className="lg:hidden p-2 text-muted-foreground hover:text-foreground"
             >
               <X className="w-6 h-6" />
             </button>
@@ -116,12 +118,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   href={item.href}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
                     isActive
-                      ? 'bg-emerald-50 text-emerald-700 shadow-sm'
-                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }`}
                 >
                   <Icon
-                    className={`w-5 h-5 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`}
+                    className={`w-5 h-5 ${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}
                   />
                   {item.label}
                 </Link>
@@ -129,17 +131,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             })}
           </nav>
 
-          <div className="p-4 mt-auto border-t border-slate-100">
+          <div className="p-4 mt-auto border-t border-border">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="w-full p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-colors">
+                <button className="w-full p-4 bg-muted rounded-2xl hover:bg-muted/80 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold">
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center text-emerald-700 dark:text-emerald-400 font-bold">
                       SA
                     </div>
                     <div className="text-left">
-                      <p className="text-sm font-bold text-slate-900">Alex Admin</p>
-                      <p className="text-xs text-slate-500 font-medium">Super Admin</p>
+                      <p className="text-sm font-bold text-foreground">Alex Admin</p>
+                      <p className="text-xs text-muted-foreground font-medium">Super Admin</p>
                     </div>
                   </div>
                 </button>
@@ -158,7 +160,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}
-                  className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                  className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950"
                 >
                   <LogOut className="mr-2 h-4 w-4" />
                   Logout
@@ -172,32 +174,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Top Navbar */}
-        <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+        <header className="bg-card border-b border-border px-6 py-4 flex items-center justify-between sticky top-0 z-40">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 text-slate-400"
+              className="lg:hidden p-2 text-muted-foreground"
             >
               <Menu className="w-6 h-6" />
             </button>
-            <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Global search..."
-                className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-full text-sm focus:ring-2 focus:ring-emerald-500 outline-none w-64 lg:w-96 transition-all"
-              />
-            </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <button className="relative p-2 text-slate-500 hover:text-emerald-600 transition-colors">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="relative"
+            >
+              <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+              <span className="sr-only">Toggle theme</span>
+            </Button>
+            <button className="relative p-2 text-muted-foreground hover:text-emerald-600 transition-colors">
               <Bell className="w-6 h-6" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 border-2 border-white rounded-full"></span>
+              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 border-2 border-card dark:border-card rounded-full"></span>
             </button>
-            <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
+            <div className="h-8 w-px bg-border hidden sm:block"></div>
             <div className="hidden sm:flex flex-col items-end">
-              <span className="text-sm font-bold text-slate-800">Operational Hub</span>
+              <span className="text-sm font-bold text-foreground">Operational Hub</span>
               <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">
                 System Online
               </span>

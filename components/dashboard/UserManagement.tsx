@@ -9,6 +9,7 @@ import {
   MoreVertical,
   CheckCircle2,
   Eye,
+  Filter,
 } from 'lucide-react'
 import {
   useReactTable,
@@ -76,17 +77,17 @@ interface User {
 const getRoleBadgeColor = (role: UserRole) => {
   switch (role) {
     case 'SUPER_ADMIN':
-      return 'bg-amber-100 text-amber-800 hover:bg-amber-100'
+      return 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900'
     case 'ADMIN':
-      return 'bg-purple-100 text-purple-800 hover:bg-purple-100'
+      return 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900'
     case 'SALES':
-      return 'bg-green-100 text-green-800 hover:bg-green-100'
+      return 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900'
     case 'SURVEYOR':
-      return 'bg-cyan-100 text-cyan-800 hover:bg-cyan-100'
+      return 'bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-900'
     case 'DELIVERY':
-      return 'bg-orange-100 text-orange-800 hover:bg-orange-100'
+      return 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900'
     case 'COLLECTOR':
-      return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100'
+      return 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-900'
     default:
       return ''
   }
@@ -96,6 +97,7 @@ const UserManagement: React.FC = () => {
   // Local state
   const [users, setUsers] = useState<User[]>([])
   const [globalFilter, setGlobalFilter] = useState('')
+  const [filterBy, setFilterBy] = useState<'all' | 'name' | 'email' | 'role'>('all')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -218,8 +220,8 @@ const UserManagement: React.FC = () => {
         const user = info.row.original
         return (
           <div className="flex items-center gap-3">
-            <Avatar>
-              <AvatarFallback className="bg-primary text-primary-foreground">
+            <Avatar className="h-10 w-10">
+              <AvatarFallback className="bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 font-bold">
                 {user.name.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
@@ -245,8 +247,8 @@ const UserManagement: React.FC = () => {
     columnHelper.accessor('status', {
       header: 'Status',
       cell: (info) => (
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 text-white text-sm font-medium">
-          <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
+        <div className="inline-flex items-center gap-2 text-sm font-medium text-green-600">
+          <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
           <span>{info.getValue()}</span>
         </div>
       ),
@@ -295,6 +297,23 @@ const UserManagement: React.FC = () => {
     }),
   ]
 
+  // Custom filter function
+  const customGlobalFilterFn = (row: any, columnId: string, filterValue: string) => {
+    const search = filterValue.toLowerCase()
+
+    if (filterBy === 'all') {
+      // Search across name, email, and role
+      return (
+        row.original.name.toLowerCase().includes(search) ||
+        row.original.email.toLowerCase().includes(search) ||
+        row.original.role.toLowerCase().includes(search)
+      )
+    } else {
+      // Search specific field
+      return row.original[filterBy]?.toLowerCase().includes(search) || false
+    }
+  }
+
   // Initialize TanStack Table
   const table = useReactTable({
     data: users,
@@ -303,6 +322,7 @@ const UserManagement: React.FC = () => {
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    globalFilterFn: customGlobalFilterFn,
     state: {
       globalFilter,
     },
@@ -318,7 +338,11 @@ const UserManagement: React.FC = () => {
             Manage administrative access and system roles
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} size="lg">
+        <Button
+          onClick={() => setIsCreateDialogOpen(true)}
+          size="lg"
+          className="bg-emerald-600 dark:bg-emerald-700 hover:bg-emerald-700 dark:hover:bg-emerald-800 text-white"
+        >
           <UserPlus className="mr-2 h-4 w-4" />
           Create New User
         </Button>
@@ -330,12 +354,28 @@ const UserManagement: React.FC = () => {
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name or email..."
+                placeholder={
+                  filterBy === 'all'
+                    ? 'Search by name, email, or role...'
+                    : `Search by ${filterBy}...`
+                }
                 className="pl-9"
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
               />
             </div>
+            <Select value={filterBy} onValueChange={(value: any) => setFilterBy(value)}>
+              <SelectTrigger className="w-[180px]">
+                <Filter className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Filter by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Fields</SelectItem>
+                <SelectItem value="name">Name</SelectItem>
+                <SelectItem value="email">Email</SelectItem>
+                <SelectItem value="role">Role</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent>

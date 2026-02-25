@@ -15,9 +15,6 @@ export async function GET(request: NextRequest) {
     const stores = await prisma.store.findMany({
       where,
       include: {
-        timeline: {
-          orderBy: { timestamp: 'desc' },
-        },
         visit_history: {
           orderBy: { timestamp: 'desc' },
         },

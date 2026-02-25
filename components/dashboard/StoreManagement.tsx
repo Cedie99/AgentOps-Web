@@ -368,7 +368,7 @@ const StoreManagement: React.FC = () => {
                                 )}
 
                                 {event.note && (
-                                   <p className="text-[10px] text-slate-500 italic mt-1 leading-relaxed">"{event.note}"</p>
+                                   <p className="text-[10px] text-slate-500 italic mt-1 leading-relaxed">&ldquo;{event.note}&rdquo;</p>
                                 )}
                               </div>
                             ) : (
@@ -392,7 +392,7 @@ const StoreManagement: React.FC = () => {
                             <span className="text-[10px] text-slate-400 font-bold uppercase">{log.timestamp}</span>
                           </div>
                           <p className="text-xs text-slate-600 leading-relaxed italic bg-slate-50 p-3 rounded-xl border border-slate-100 mb-3">
-                            "{log.notes}"
+                            &ldquo;{log.notes}&rdquo;
                           </p>
                           <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold uppercase tracking-tight pt-2 border-t border-slate-50">
                             <div className="flex items-center gap-1.5">

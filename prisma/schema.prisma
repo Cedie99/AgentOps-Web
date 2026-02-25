@@ -60,6 +60,31 @@ enum AnnouncementPriority {
   HIGH
 }
 
+enum SalesActivityType {
+  COLD_CALL
+  COLD_EMAIL
+  QUOTATION_PREP
+  CLIENT_FOLLOWUP
+  REVIVE_DORMANT
+  SOCIAL_PROSPECTING
+  EMAIL_INQUIRY_REPLY
+  CALL_INQUIRY_REPLY
+  WEEKLY_TODO_PREP
+  VEHICLE_RESERVATION
+  SAMPLE_REQUEST
+  MARKETING_MATERIAL_REQUEST
+  DESIGN_REQUEST
+  INTERNAL_PO
+  SALES_MEETING
+  WALKIN_CLIENT
+  CLIENT_ISSUE
+  DELIVERY_FOLLOWUP
+  SAMPLE_FOLLOWUP
+  PRICING_REQUEST
+  STORE_VISIT
+  OTHER
+}
+
 // Unified User model (combines old User and Agent tables)
 model User {
   id     Int        @id @default(autoincrement())
@@ -87,12 +112,9 @@ model User {
   // Relations
   vehicle           Vehicle?         @relation(fields: [vehicle_id], references: [id])
   attendance_records Attendance[]
-  timeline_events   TimelineEvent[]
   visit_logs        VisitLog[]
   store_assignments          Store[]
-  fuel_entries               FuelEntry[]
   announcements              Announcement[]
-  announcement_acknowledgments AnnouncementAcknowledgment[]
   surveyor_surveys           Survey[]                       @relation("SurveyorSurveys")
   assigned_surveys           Survey[]                       @relation("AssignedSurveys")
   gps_tracking_points GpsTrackingPoint[]
@@ -100,6 +122,7 @@ model User {
   reviewed_transactions Transaction[] @relation("TransactionReviewer")
   assigned_deliveries DeliveryOrder[] @relation("AssignedDeliveries")
   created_deliveries DeliveryOrder[]  @relation("CreatedDeliveries")
+  sales_activities SalesActivity[]
 
   @@index([email])
   @@index([role])
@@ -120,8 +143,6 @@ model Vehicle {
 
   // Relations
   users           User[]
-  fuel_entries    FuelEntry[]
-  timeline_events TimelineEvent[]
 
   @@index([plate])
   @@index([assigned_to])
@@ -151,7 +172,6 @@ model Store {
 
   // Relations
   current_user User?           @relation(fields: [current_user_id], references: [id])
-  timeline     TimelineEvent[]
   visit_history VisitLog[]
 
   @@index([status])
@@ -160,41 +180,19 @@ model Store {
   @@map("stores")
 }
 
-model TimelineEvent {
-  id                  Int           @id @default(autoincrement())
-  store_id            Int           @map("store_id")
-  user_id             Int           @map("user_id")
-  user_name           String        @map("user_name")
-  role                UserRole
-  vehicle_id          Int           @map("vehicle_id")
-  status              StoreStatus
-  timestamp           DateTime      @default(now())
-  note                String?
-  photo_url           String?       @map("photo_url")
-  payment_status      PaymentStatus? @map("payment_status")
-  amount_collected    Float?        @map("amount_collected")
-  total_order_amount  Float?        @map("total_order_amount")
-  created_at          DateTime      @default(now()) @map("created_at")
-
-  // Relations
-  store   Store   @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [user_id], references: [id])
-  vehicle Vehicle @relation(fields: [vehicle_id], references: [id])
-
-  @@index([store_id])
-  @@index([user_id])
-  @@index([timestamp])
-  @@map("timeline_events")
-}
-
 model VisitLog {
   id                 Int      @id @default(autoincrement())
   store_id           Int      @map("store_id")
   user_id            Int      @map("user_id")
   user_name          String   @map("user_name")
+  user_role          UserRole @map("user_role")
   timestamp          DateTime @default(now())
   outcome            String
   location_verified  Boolean  @default(false) @map("location_verified")
+  visit_lat          Float?   @map("visit_lat")
+  visit_lng          Float?   @map("visit_lng")
+  distance_from_store Float?  @map("distance_from_store") // Distance in meters from store location
+  photo_url          String?  @map("photo_url")
   notes              String?
   created_at         DateTime @default(now()) @map("created_at")
 
@@ -204,25 +202,27 @@ model VisitLog {
 
   @@index([store_id])
   @@index([user_id])
+  @@index([user_role])
   @@index([timestamp])
   @@map("visit_logs")
 }
 
 model Attendance {
-  id              Int       @id @default(autoincrement())
-  user_id         Int       @map("user_id")
-  work_date       String    @map("work_date")           // YYYY-MM-DD format
-  clock_in_time   DateTime  @map("clock_in_time")
-  clock_out_time  DateTime? @map("clock_out_time")
-  clock_in_lat    Float?    @map("clock_in_lat")
-  clock_in_long   Float?    @map("clock_in_long")
-  clock_out_lat   Float?    @map("clock_out_lat")
-  clock_out_long  Float?    @map("clock_out_long")
-  selfie_url      String?   @map("selfie_url")
-  duration        String?
-  total_distance  Float?    @map("total_distance")      // Total km traveled during shift
-  created_at      DateTime  @default(now()) @map("created_at")
-  updated_at      DateTime  @updatedAt @map("updated_at")
+  id               Int       @id @default(autoincrement())
+  user_id          Int       @map("user_id")
+  work_date        String    @map("work_date")           // YYYY-MM-DD format
+  clock_in_time    DateTime  @map("clock_in_time")
+  clock_out_time   DateTime? @map("clock_out_time")
+  clock_in_lat     Float?    @map("clock_in_lat")
+  clock_in_long    Float?    @map("clock_in_long")
+  clock_out_lat    Float?    @map("clock_out_lat")
+  clock_out_long   Float?    @map("clock_out_long")
+  selfie_url       String?   @map("selfie_url")
+  duration         String?
+  total_distance   Float?    @map("total_distance")      // Total km traveled during shift
+  auto_clocked_out Boolean   @default(false) @map("auto_clocked_out") // True if automatically clocked out at 5:30 PM
+  created_at       DateTime  @default(now()) @map("created_at")
+  updated_at       DateTime  @updatedAt @map("updated_at")
 
   // Relations
   user            User                @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -230,27 +230,8 @@ model Attendance {
 
   @@index([user_id])
   @@index([work_date])
+  @@index([auto_clocked_out])
   @@map("attendance")
-}
-
-model FuelEntry {
-  id         Int      @id @default(autoincrement())
-  vehicle_id Int      @map("vehicle_id")
-  liters     Float
-  cost       Float
-  date       DateTime @default(now())
-  logged_by  String   @map("logged_by")
-  user_id    Int      @map("user_id")
-  created_at DateTime @default(now()) @map("created_at")
-
-  // Relations
-  vehicle Vehicle @relation(fields: [vehicle_id], references: [id])
-  user    User    @relation(fields: [user_id], references: [id])
-
-  @@index([vehicle_id])
-  @@index([user_id])
-  @@index([date])
-  @@map("fuel_entries")
 }
 
 model Announcement {
@@ -268,48 +249,10 @@ model Announcement {
 
   // Relations
   user            User                           @relation(fields: [created_by], references: [id])
-  acknowledgments AnnouncementAcknowledgment[]
 
   @@index([created_by])
   @@index([timestamp])
   @@map("announcements")
-}
-
-model AnnouncementAcknowledgment {
-  id              Int          @id @default(autoincrement())
-  announcement_id Int          @map("announcement_id")
-  user_id         Int          @map("user_id")
-  acknowledged_at DateTime     @default(now()) @map("acknowledged_at")
-  created_at      DateTime     @default(now()) @map("created_at")
-
-  // Relations
-  announcement Announcement @relation(fields: [announcement_id], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [user_id], references: [id])
-
-  @@unique([announcement_id, user_id])
-  @@index([announcement_id])
-  @@index([user_id])
-  @@map("announcement_acknowledgments")
-}
-
-model Product {
-  id              Int       @id @default(autoincrement())
-  product_code    String    @unique @map("product_code")
-  product_name    String    @map("product_name")
-  description     String?
-  category        String?
-  unit_of_measure String?   @default("PIECE") @map("unit_of_measure")
-  price           Decimal   @db.Decimal(12, 2)
-  cost            Decimal?  @db.Decimal(12, 2)
-  is_active       Boolean   @default(true) @map("is_active")
-  image_url       String?   @map("image_url")
-  stock_quantity  Int       @default(0) @map("stock_quantity")
-  created_at      DateTime  @default(now()) @map("created_at")
-  updated_at      DateTime  @default(now()) @map("updated_at")
-
-  @@index([category], map: "idx_products_category")
-  @@index([is_active], map: "idx_products_active")
-  @@map("products")
 }
 
 model Survey {
@@ -401,7 +344,6 @@ model Transaction {
   creator         User               @relation("TransactionCreator", fields: [created_by], references: [id])
   reviewer        User?              @relation("TransactionReviewer", fields: [reviewed_by], references: [id])
   survey          Survey?            @relation(fields: [survey_id], references: [id])
-  items           TransactionItem[]
   delivery_orders DeliveryOrder[]
 
   @@index([created_by])
@@ -410,30 +352,6 @@ model Transaction {
   @@index([status])
   @@index([created_at])
   @@map("transactions")
-}
-
-model TransactionItem {
-  id               Int         @id @default(autoincrement())
-  transaction_id   Int         @map("transaction_id")
-  product_id       Int?        @map("product_id")
-  product_name     String      @map("product_name")
-  product_code     String?     @map("product_code")
-  quantity         Int
-  unit_price       Decimal     @map("unit_price")
-  subtotal         Decimal
-  discount_percent Decimal?    @default(0) @map("discount_percent")
-  discount_amount  Decimal?    @default(0) @map("discount_amount")
-  total_amount     Decimal     @map("total_amount")
-  unit_of_measure  String?     @map("unit_of_measure")
-  notes            String?
-  created_at       DateTime    @default(now()) @map("created_at")
-
-  // Relations
-  transaction Transaction @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
-
-  @@index([transaction_id])
-  @@index([product_id], map: "idx_transaction_items_product")
-  @@map("transaction_items")
 }
 
 model DeliveryOrder {
@@ -535,4 +453,44 @@ model AppVersionHistory {
   @@index([platform])
   @@index([created_at])
   @@map("app_version_history")
+}
+
+// Sales Activities with mandatory image proof
+model SalesActivity {
+  id                  Int                @id @default(autoincrement())
+  sales_agent_id      Int                @map("sales_agent_id")
+  survey_id           Int?               @map("survey_id")               // Optional: link to specific store/survey
+  activity_type       SalesActivityType  @map("activity_type")
+  activity_date       DateTime           @default(now()) @map("activity_date")
+
+  // Mandatory proof
+  proof_image_url     String             @map("proof_image_url")         // Required: screenshot/photo as proof
+
+  // Optional additional details
+  notes               String?                                            // Activity description/notes
+  gps_latitude        Float?             @map("gps_latitude")            // Location when activity was logged
+  gps_longitude       Float?             @map("gps_longitude")
+
+  // Client/Store information (for non-survey activities)
+  client_name         String?            @map("client_name")
+  client_contact      String?            @map("client_contact")
+
+  // Outcome tracking
+  outcome             String?                                            // Result of the activity
+  follow_up_required  Boolean            @default(false) @map("follow_up_required")
+  follow_up_date      DateTime?          @map("follow_up_date")
+
+  // Metadata
+  created_at          DateTime           @default(now()) @map("created_at")
+  updated_at          DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  sales_agent         User               @relation(fields: [sales_agent_id], references: [id], onDelete: Cascade)
+
+  @@index([sales_agent_id])
+  @@index([survey_id])
+  @@index([activity_type])
+  @@index([activity_date])
+  @@index([follow_up_date])
+  @@map("sales_activities")
 }

@@ -200,7 +200,7 @@ const SalesTracking: React.FC = () => {
                                 </span>
                               </div>
                               <p className="text-[10px] text-slate-500 italic mb-2 leading-relaxed line-clamp-2">
-                                "{log?.notes || 'No visit notes available.'}"
+                                &ldquo;{log?.notes || 'No visit notes available.'}&rdquo;
                               </p>
                               <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-tight">
                                 <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {log?.timestamp || 'Recently'}</span>

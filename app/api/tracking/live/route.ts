@@ -28,11 +28,10 @@ export async function GET(request: NextRequest) {
     // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0]
 
-    // Get all currently active shifts (clocked in but not clocked out)
-    const activeShifts = await prisma.attendance.findMany({
+    // Get all shifts for today (both active and completed)
+    const todayShifts = await prisma.attendance.findMany({
       where: {
         work_date: today,
-        clock_out_time: null,  // Still working
       },
       include: {
         user: {
@@ -60,8 +59,9 @@ export async function GET(request: NextRequest) {
     })
 
     // Format response with latest GPS coordinates
-    const liveAgents = activeShifts.map(shift => {
+    const allAgents = todayShifts.map(shift => {
       const latestGps = shift.gps_points[0]
+      const isActive = !shift.clock_out_time
 
       return {
         id: shift.user.id,
@@ -75,26 +75,35 @@ export async function GET(request: NextRequest) {
         clock_in_time: shift.clock_in_time,
         clock_in_lat: shift.clock_in_lat,
         clock_in_long: shift.clock_in_long,
+        clock_out_time: shift.clock_out_time,
+        clock_out_lat: shift.clock_out_lat,
+        clock_out_long: shift.clock_out_long,
         current_lat: latestGps?.latitude || shift.clock_in_lat,
         current_lng: latestGps?.longitude || shift.clock_in_long,
         last_update: latestGps?.timestamp || shift.clock_in_time,
         total_distance: shift.total_distance,
-        working_duration: calculateDuration(shift.clock_in_time),
+        working_duration: isActive
+          ? calculateDuration(shift.clock_in_time)
+          : calculateCompletedDuration(shift.clock_in_time, shift.clock_out_time!),
+        is_active: isActive,
       }
     })
 
     // Get statistics
+    const liveAgents = allAgents.filter(a => a.is_active)
     const stats = {
+      total_today: allAgents.length,
       total_active: liveAgents.length,
-      by_role: liveAgents.reduce((acc, agent) => {
+      total_clocked_out: allAgents.filter(a => !a.is_active).length,
+      by_role: allAgents.reduce((acc, agent) => {
         acc[agent.role] = (acc[agent.role] || 0) + 1
         return acc
       }, {} as Record<string, number>),
-      total_distance: liveAgents.reduce((sum, agent) => sum + (agent.total_distance || 0), 0),
+      total_distance: allAgents.reduce((sum, agent) => sum + (agent.total_distance || 0), 0),
     }
 
     return NextResponse.json({
-      agents: liveAgents,
+      agents: allAgents,
       stats,
       updated_at: new Date().toISOString()
     })
@@ -107,11 +116,23 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Helper function to calculate duration
+// Helper function to calculate duration (ongoing)
 function calculateDuration(startTime: Date): string {
   const now = new Date()
   const start = new Date(startTime)
   const diffMs = now.getTime() - start.getTime()
+
+  const hours = Math.floor(diffMs / (1000 * 60 * 60))
+  const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+
+  return `${hours}h ${minutes}m`
+}
+
+// Helper function to calculate completed duration
+function calculateCompletedDuration(startTime: Date, endTime: Date): string {
+  const start = new Date(startTime)
+  const end = new Date(endTime)
+  const diffMs = end.getTime() - start.getTime()
 
   const hours = Math.floor(diffMs / (1000 * 60 * 60))
   const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))

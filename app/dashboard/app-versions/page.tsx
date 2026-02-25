@@ -127,18 +127,18 @@ export default function AppVersionsPage() {
 
   const getChangeTypeBadge = (type: string) => {
     const colors: Record<string, string> = {
-      minimum_updated: 'bg-orange-100 text-orange-700',
-      latest_updated: 'bg-blue-100 text-blue-700',
-      force_enabled: 'bg-red-100 text-red-700',
-      force_disabled: 'bg-green-100 text-green-700',
+      minimum_updated: 'bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300',
+      latest_updated: 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300',
+      force_enabled: 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300',
+      force_disabled: 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300',
     }
-    return colors[type] || 'bg-gray-100 text-gray-700'
+    return colors[type] || 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
+        <RefreshCw className="w-8 h-8 animate-spin text-emerald-600 dark:text-emerald-400" />
       </div>
     )
   }
@@ -147,17 +147,17 @@ export default function AppVersionsPage() {
     <div className="p-8 space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">App Version Management</h1>
-        <p className="text-slate-600 mt-2">
+        <h1 className="text-3xl font-bold text-foreground">App Version Management</h1>
+        <p className="text-muted-foreground mt-2">
           Control mobile app updates and force version upgrades
         </p>
       </div>
 
       {/* Success Message */}
       {showSuccess && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
-          <CheckCircle2 className="w-5 h-5 text-green-600" />
-          <p className="text-green-800 font-medium">Version updated successfully!</p>
+        <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-700 rounded-lg p-4 flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+          <p className="text-green-800 dark:text-green-300 font-medium">Version updated successfully!</p>
         </div>
       )}
 
@@ -165,19 +165,19 @@ export default function AppVersionsPage() {
         {/* Left: Version Control */}
         <div className="space-y-6">
           {/* Platform Selector */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div className="bg-card rounded-xl shadow-sm border p-6">
             <div className="flex gap-4">
               <button
                 onClick={() => setSelectedPlatform('android')}
                 className={`flex-1 p-4 rounded-lg border-2 transition-all ${
                   selectedPlatform === 'android'
-                    ? 'border-emerald-600 bg-emerald-50'
-                    : 'border-slate-200 hover:border-slate-300'
+                    ? 'border-emerald-600 dark:border-emerald-500 bg-emerald-50 dark:bg-emerald-950'
+                    : 'border-border hover:border-muted-foreground/30'
                 }`}
               >
-                <Smartphone className="w-6 h-6 mx-auto mb-2 text-green-600" />
-                <p className="font-semibold text-slate-900">Android</p>
-                <p className="text-sm text-slate-600 mt-1">
+                <Smartphone className="w-6 h-6 mx-auto mb-2 text-green-600 dark:text-green-400" />
+                <p className="font-semibold text-foreground">Android</p>
+                <p className="text-sm text-muted-foreground mt-1">
                   v{Array.isArray(configs) ? configs.find(c => c.platform === 'android')?.latest_version || '1.0.0' : '1.0.0'}
                 </p>
               </button>
@@ -186,13 +186,13 @@ export default function AppVersionsPage() {
                 onClick={() => setSelectedPlatform('ios')}
                 className={`flex-1 p-4 rounded-lg border-2 transition-all ${
                   selectedPlatform === 'ios'
-                    ? 'border-emerald-600 bg-emerald-50'
-                    : 'border-slate-200 hover:border-slate-300'
+                    ? 'border-emerald-600 dark:border-emerald-500 bg-emerald-50 dark:bg-emerald-950'
+                    : 'border-border hover:border-muted-foreground/30'
                 }`}
               >
-                <Smartphone className="w-6 h-6 mx-auto mb-2 text-gray-600" />
-                <p className="font-semibold text-slate-900">iOS</p>
-                <p className="text-sm text-slate-600 mt-1">
+                <Smartphone className="w-6 h-6 mx-auto mb-2 text-gray-600 dark:text-gray-400" />
+                <p className="font-semibold text-foreground">iOS</p>
+                <p className="text-sm text-muted-foreground mt-1">
                   v{Array.isArray(configs) ? configs.find(c => c.platform === 'ios')?.latest_version || '1.0.0' : '1.0.0'}
                 </p>
               </button>
@@ -200,15 +200,15 @@ export default function AppVersionsPage() {
           </div>
 
           {/* Version Form */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 className="text-xl font-bold text-slate-900 mb-4">
+          <div className="bg-card rounded-xl shadow-sm border p-6">
+            <h2 className="text-xl font-bold text-foreground mb-4">
               Update {selectedPlatform === 'android' ? 'Android' : 'iOS'} Version
             </h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Latest Version */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Latest Version *
                 </label>
                 <input
@@ -216,17 +216,17 @@ export default function AppVersionsPage() {
                   value={formData.latest_version}
                   onChange={(e) => setFormData({ ...formData, latest_version: e.target.value })}
                   placeholder="1.0.0"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full px-4 py-2 border bg-background text-foreground rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                   required
                 />
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Version available in the app store
                 </p>
               </div>
 
               {/* Minimum Version */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Minimum Required Version
                 </label>
                 <input
@@ -234,18 +234,18 @@ export default function AppVersionsPage() {
                   value={formData.minimum_version}
                   onChange={(e) => setFormData({ ...formData, minimum_version: e.target.value })}
                   placeholder="1.0.0"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full px-4 py-2 border bg-background text-foreground rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Users below this version will be forced to update
                 </p>
               </div>
 
               {/* Force Update Toggle */}
-              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                 <div>
-                  <p className="font-medium text-slate-900">Force Update</p>
-                  <p className="text-sm text-slate-600">Block app until user updates</p>
+                  <p className="font-medium text-foreground">Force Update</p>
+                  <p className="text-sm text-muted-foreground">Block app until user updates</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -254,13 +254,13 @@ export default function AppVersionsPage() {
                     onChange={(e) => setFormData({ ...formData, force_update: e.target.checked })}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                  <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
                 </label>
               </div>
 
               {/* Update Message */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Update Message
                 </label>
                 <textarea
@@ -268,16 +268,16 @@ export default function AppVersionsPage() {
                   onChange={(e) => setFormData({ ...formData, update_message: e.target.value })}
                   placeholder="A new version is available..."
                   rows={3}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full px-4 py-2 border bg-background text-foreground rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Message shown to users in the app
                 </p>
               </div>
 
               {/* Change Note */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Change Note (Internal)
                 </label>
                 <input
@@ -285,20 +285,20 @@ export default function AppVersionsPage() {
                   value={formData.change_note}
                   onChange={(e) => setFormData({ ...formData, change_note: e.target.value })}
                   placeholder="e.g., Critical bug fix release"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="w-full px-4 py-2 border bg-background text-foreground rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 />
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Internal note for tracking (not shown to users)
                 </p>
               </div>
 
               {/* Warning */}
               {formData.force_update && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-700 rounded-lg p-4 flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-red-800 font-medium">Force Update Enabled</p>
-                    <p className="text-red-700 text-sm mt-1">
+                    <p className="text-red-800 dark:text-red-300 font-medium">Force Update Enabled</p>
+                    <p className="text-red-700 dark:text-red-400 text-sm mt-1">
                       Users below minimum version ({formData.minimum_version}) will be blocked from using the app until they update.
                     </p>
                   </div>
@@ -330,64 +330,66 @@ export default function AppVersionsPage() {
         {/* Right: Current Status & History */}
         <div className="space-y-6">
           {/* Current Status */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 className="text-xl font-bold text-slate-900 mb-4">Current Status</h2>
+          <div className="bg-card rounded-xl shadow-sm border p-6">
+            <h2 className="text-xl font-bold text-foreground mb-4">Current Status</h2>
 
             {currentConfig ? (
               <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
-                  <span className="text-slate-600">Platform</span>
-                  <span className="font-semibold text-slate-900 capitalize">{currentConfig.platform}</span>
+                <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                  <span className="text-muted-foreground">Platform</span>
+                  <span className="font-semibold text-foreground capitalize">{currentConfig.platform}</span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
-                  <span className="text-slate-600">Latest Version</span>
-                  <span className="font-semibold text-slate-900">{currentConfig.latest_version}</span>
+                <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                  <span className="text-muted-foreground">Latest Version</span>
+                  <span className="font-semibold text-foreground">{currentConfig.latest_version}</span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
-                  <span className="text-slate-600">Minimum Version</span>
-                  <span className="font-semibold text-slate-900">{currentConfig.minimum_version}</span>
+                <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                  <span className="text-muted-foreground">Minimum Version</span>
+                  <span className="font-semibold text-foreground">{currentConfig.minimum_version}</span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
-                  <span className="text-slate-600">Force Update</span>
+                <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                  <span className="text-muted-foreground">Force Update</span>
                   <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                    currentConfig.force_update ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                    currentConfig.force_update
+                      ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
+                      : 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
                   }`}>
                     {currentConfig.force_update ? 'Enabled' : 'Disabled'}
                   </span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
-                  <span className="text-slate-600">Last Updated</span>
-                  <span className="text-slate-900">
+                <div className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                  <span className="text-muted-foreground">Last Updated</span>
+                  <span className="text-foreground">
                     {new Date(currentConfig.updated_at).toLocaleDateString()}
                   </span>
                 </div>
               </div>
             ) : (
-              <p className="text-slate-500">No configuration found</p>
+              <p className="text-muted-foreground">No configuration found</p>
             )}
           </div>
 
           {/* Version History */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div className="bg-card rounded-xl shadow-sm border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                 <History className="w-5 h-5" />
                 Change History
               </h2>
               <button
                 onClick={fetchData}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-muted rounded-lg transition-colors"
               >
-                <RefreshCw className="w-4 h-4 text-slate-600" />
+                <RefreshCw className="w-4 h-4 text-muted-foreground" />
               </button>
             </div>
 
-            <div className="space-y-3 max-h-[500px] overflow-y-auto">
+            <div className="space-y-3 max-h-125 overflow-y-auto">
               {Array.isArray(history) && history.length > 0 ? (
                 history.map((entry) => (
                   <div
                     key={entry.id}
-                    className="p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                    className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1">
@@ -395,22 +397,22 @@ export default function AppVersionsPage() {
                           <span className={`px-2 py-1 rounded text-xs font-semibold ${getChangeTypeBadge(entry.change_type)}`}>
                             {getChangeTypeLabel(entry.change_type)}
                           </span>
-                          <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-xs font-medium capitalize">
+                          <span className="px-2 py-1 bg-muted text-foreground rounded text-xs font-medium capitalize">
                             {entry.platform}
                           </span>
                         </div>
 
-                        <p className="text-sm text-slate-900">
-                          <span className="text-slate-500">From:</span> <span className="font-mono">{entry.previous_value || 'N/A'}</span>
+                        <p className="text-sm text-foreground">
+                          <span className="text-muted-foreground">From:</span> <span className="font-mono">{entry.previous_value || 'N/A'}</span>
                           {' → '}
-                          <span className="text-slate-500">To:</span> <span className="font-mono font-semibold">{entry.new_value}</span>
+                          <span className="text-muted-foreground">To:</span> <span className="font-mono font-semibold">{entry.new_value}</span>
                         </p>
 
                         {entry.change_note && (
-                          <p className="text-sm text-slate-600 mt-1 italic">"{entry.change_note}"</p>
+                          <p className="text-sm text-muted-foreground mt-1 italic">&quot;{entry.change_note}&quot;</p>
                         )}
 
-                        <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                           <span>{entry.changed_by || 'System'}</span>
                           <span>•</span>
                           <span>{new Date(entry.created_at).toLocaleString()}</span>
@@ -420,7 +422,7 @@ export default function AppVersionsPage() {
                   </div>
                 ))
               ) : (
-                <p className="text-slate-500 text-center py-8">No change history yet</p>
+                <p className="text-muted-foreground text-center py-8">No change history yet</p>
               )}
             </div>
           </div>
