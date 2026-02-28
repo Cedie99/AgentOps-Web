@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import {
@@ -19,7 +20,6 @@ import {
   UserCog,
   ShoppingBag,
   PackageCheck,
-  ShieldCheck,
   LogOut,
   User,
   FileText,
@@ -30,6 +30,8 @@ import {
   Sun,
   Moon,
   Activity,
+  ShoppingCart,
+  TrendingUp,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -52,13 +54,13 @@ type NavItem = {
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { id: 'map', label: 'Live Map', icon: MapIcon, href: '/dashboard/map' },
-  { id: 'history', label: 'GPS History', icon: History, href: '/dashboard/tracking/history' },
+  { id: 'history', label: 'Activity History', icon: History, href: '/dashboard/tracking/history' },
   { id: 'surveys', label: 'Surveys', icon: FileText, href: '/dashboard/surveys' },
-  { id: 'sales', label: 'Sales Hub', icon: ShoppingBag, href: '/dashboard/sales' },
+  { id: 'orders', label: 'Orders', icon: ShoppingCart, href: '/dashboard/orders' },
+  { id: 'collections', label: 'Collections', icon: Package, href: '/dashboard/collections' },
+  { id: 'sales-pipeline', label: 'Sales Overview', icon: TrendingUp, href: '/dashboard/sales-pipeline' },
   { id: 'sales-visits', label: 'Sales Visits', icon: MapPin, href: '/dashboard/sales-visits' },
   { id: 'sales-activities', label: 'Sales Activities', icon: Activity, href: '/dashboard/sales-activities' },
-  { id: 'logistics', label: 'Logistics Hub', icon: PackageCheck, href: '/dashboard/logistics' },
-  { id: 'audit', label: 'Audit Hub', icon: ShieldCheck, href: '/dashboard/audit' },
   { id: 'attendance', label: 'Attendance', icon: Clock, href: '/dashboard/attendance' },
   { id: 'announcements', label: 'Broadcasts', icon: Megaphone, href: '/dashboard/announcements' },
   { id: 'app-versions', label: 'App Versions', icon: Smartphone, href: '/dashboard/app-versions' },
@@ -125,18 +127,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }`}
       >
         <div className="h-full flex flex-col">
-          <div className="p-6 flex items-center justify-between">
+          <div className="p-4 flex items-center justify-between">
             <Link href="/dashboard" className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200 dark:shadow-emerald-900/20">
-                <LayoutDashboard className="w-6 h-6 text-white" />
+              <Image
+                src="/logo.png"
+                alt="Oracle Petroleum Corporation"
+                width={56}
+                height={56}
+                className="rounded-lg flex-shrink-0"
+              />
+              <div className="flex flex-col min-w-0">
+                <h1 className="text-base font-bold text-foreground tracking-tight leading-tight">
+                  Oracle Petroleum
+                </h1>
+                <p className="text-base font-bold text-emerald-600 tracking-tight leading-tight">
+                  Corporation
+                </p>
               </div>
-              <h1 className="text-xl font-bold text-foreground tracking-tight">
-                Agent<span className="text-emerald-600">Ops</span>
-              </h1>
             </Link>
             <button
               onClick={() => setIsSidebarOpen(false)}
-              className="lg:hidden p-2 text-muted-foreground hover:text-foreground"
+              className="lg:hidden p-2 text-muted-foreground hover:text-foreground flex-shrink-0"
             >
               <X className="w-6 h-6" />
             </button>

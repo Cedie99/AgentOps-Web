@@ -389,7 +389,7 @@ export default function TrackingHistoryPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">GPS Tracking History</h1>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">Activity History</h1>
             <p className="text-muted-foreground text-sm">Review agent activities and routes</p>
           </div>
         </div>
@@ -474,14 +474,33 @@ export default function TrackingHistoryPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600"></div>
-                        <span className="text-muted-foreground">Loading agents...</span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  <>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <TableRow key={i}>
+                        <TableCell>
+                          <div className="h-10 bg-muted animate-pulse rounded" />
+                        </TableCell>
+                        <TableCell>
+                          <div className="h-4 w-16 bg-muted animate-pulse rounded" />
+                        </TableCell>
+                        <TableCell>
+                          <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                        </TableCell>
+                        <TableCell>
+                          <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                        </TableCell>
+                        <TableCell>
+                          <div className="h-4 w-16 bg-muted animate-pulse rounded" />
+                        </TableCell>
+                        <TableCell>
+                          <div className="h-6 w-20 bg-muted animate-pulse rounded" />
+                        </TableCell>
+                        <TableCell>
+                          <div className="h-8 w-24 bg-muted animate-pulse rounded" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </>
                 ) : agentsWithAttendance.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8">
@@ -582,7 +601,7 @@ export default function TrackingHistoryPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold text-foreground tracking-tight">
-              {selectedAgentData?.name} - Route Details
+              {selectedAgentData?.name} - Activity Details
             </h1>
             <p className="text-muted-foreground text-sm">
               {new Date(selectedDate).toLocaleDateString()} • {selectedAgentData?.role}
@@ -774,7 +793,7 @@ export default function TrackingHistoryPage() {
         {/* Sidebar */}
         <div className="w-full md:w-80 border-l border-border bg-card flex flex-col">
           <div className="p-6 border-b border-border">
-            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Route Details</h3>
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Activity Details</h3>
 
             {selectedAgentData && selectedAttendance ? (
               <div className="space-y-4">

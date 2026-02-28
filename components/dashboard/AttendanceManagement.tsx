@@ -201,7 +201,7 @@ export default function AttendanceManagement() {
         header: 'Clock In',
         cell: ({ getValue }) => {
           const time = getValue() as string
-          return format(new Date(time), 'HH:mm:ss')
+          return format(new Date(time), 'h:mm:ss a')
         },
       },
       {
@@ -209,7 +209,7 @@ export default function AttendanceManagement() {
         header: 'Clock Out',
         cell: ({ getValue }) => {
           const time = getValue() as string | null
-          return time ? format(new Date(time), 'HH:mm:ss') : (
+          return time ? format(new Date(time), 'h:mm:ss a') : (
             <Badge variant="secondary" className="bg-green-100 text-green-800">
               <Clock3 className="h-3 w-3 mr-1" />
               Working
@@ -512,7 +512,7 @@ export default function AttendanceManagement() {
                     Clock In
                   </div>
                   <div className="text-lg font-mono">
-                    {format(new Date(selectedRecord.clock_in_time), 'HH:mm:ss')}
+                    {format(new Date(selectedRecord.clock_in_time), 'h:mm:ss a')}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {format(new Date(selectedRecord.clock_in_time), 'MMM dd, yyyy')}
@@ -533,7 +533,7 @@ export default function AttendanceManagement() {
                   {selectedRecord.clock_out_time ? (
                     <>
                       <div className="text-lg font-mono">
-                        {format(new Date(selectedRecord.clock_out_time), 'HH:mm:ss')}
+                        {format(new Date(selectedRecord.clock_out_time), 'h:mm:ss a')}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {format(new Date(selectedRecord.clock_out_time), 'MMM dd, yyyy')}
@@ -555,17 +555,11 @@ export default function AttendanceManagement() {
               </div>
 
               {/* Summary */}
-              <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
+              <div className="p-4 bg-muted rounded-lg">
                 <div>
                   <div className="text-sm text-muted-foreground">Duration</div>
                   <div className="text-lg font-semibold">
                     {calculateDuration(selectedRecord.clock_in_time, selectedRecord.clock_out_time)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm text-muted-foreground">Distance Traveled</div>
-                  <div className="text-lg font-semibold">
-                    {selectedRecord.total_distance ? `${selectedRecord.total_distance.toFixed(2)} km` : 'N/A'}
                   </div>
                 </div>
               </div>

@@ -137,8 +137,83 @@ export default function AppVersionsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <RefreshCw className="w-8 h-8 animate-spin text-emerald-600 dark:text-emerald-400" />
+      <div className="p-8 space-y-8">
+        {/* Header Skeleton */}
+        <div>
+          <div className="h-9 w-80 bg-muted animate-pulse rounded mb-2" />
+          <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left: Version Control Skeleton */}
+          <div className="space-y-6">
+            {/* Platform Selector Skeleton */}
+            <div className="bg-card rounded-xl shadow-sm border p-6">
+              <div className="flex gap-4">
+                <div className="flex-1 p-4 rounded-lg border-2 border-border">
+                  <div className="w-6 h-6 mx-auto mb-2 bg-muted animate-pulse rounded" />
+                  <div className="h-5 w-20 mx-auto bg-muted animate-pulse rounded mb-2" />
+                  <div className="h-4 w-16 mx-auto bg-muted animate-pulse rounded" />
+                </div>
+                <div className="flex-1 p-4 rounded-lg border-2 border-border">
+                  <div className="w-6 h-6 mx-auto mb-2 bg-muted animate-pulse rounded" />
+                  <div className="h-5 w-16 mx-auto bg-muted animate-pulse rounded mb-2" />
+                  <div className="h-4 w-16 mx-auto bg-muted animate-pulse rounded" />
+                </div>
+              </div>
+            </div>
+
+            {/* Version Form Skeleton */}
+            <div className="bg-card rounded-xl shadow-sm border p-6">
+              <div className="h-6 w-48 bg-muted animate-pulse rounded mb-4" />
+              <div className="space-y-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i}>
+                    <div className="h-4 w-32 bg-muted animate-pulse rounded mb-2" />
+                    <div className="h-10 w-full bg-muted animate-pulse rounded" />
+                  </div>
+                ))}
+                <div className="h-12 w-full bg-muted animate-pulse rounded" />
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Current Status & History Skeleton */}
+          <div className="space-y-6">
+            {/* Current Status Skeleton */}
+            <div className="bg-card rounded-xl shadow-sm border p-6">
+              <div className="h-6 w-40 bg-muted animate-pulse rounded mb-4" />
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                    <div className="h-4 w-24 bg-muted-foreground/20 animate-pulse rounded" />
+                    <div className="h-4 w-20 bg-muted-foreground/20 animate-pulse rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Version History Skeleton */}
+            <div className="bg-card rounded-xl shadow-sm border p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="h-6 w-40 bg-muted animate-pulse rounded" />
+                <div className="h-8 w-8 bg-muted animate-pulse rounded" />
+              </div>
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="p-4 border rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-6 w-32 bg-muted animate-pulse rounded" />
+                      <div className="h-6 w-20 bg-muted animate-pulse rounded" />
+                    </div>
+                    <div className="h-4 w-full bg-muted animate-pulse rounded mb-2" />
+                    <div className="h-3 w-48 bg-muted animate-pulse rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }

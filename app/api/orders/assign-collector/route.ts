@@ -20,17 +20,34 @@ export async function POST(request: NextRequest) {
 
     if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
       return NextResponse.json(
-        { error: 'Forbidden: Only ADMIN and SUPER_ADMIN can approve orders' },
+        { error: 'Forbidden: Only ADMIN and SUPER_ADMIN can assign collectors' },
         { status: 403 }
       )
     }
 
     // Get request body
-    const { orderId, notes } = await request.json()
+    const { orderId, collectorUserId } = await request.json()
 
-    if (!orderId) {
+    if (!orderId || !collectorUserId) {
       return NextResponse.json(
-        { error: 'Missing required field: orderId' },
+        { error: 'Missing required fields: orderId, collectorUserId' },
+        { status: 400 }
+      )
+    }
+
+    // Verify the collector user exists and has COLLECTOR role
+    const collectorUser = await prisma.user.findUnique({
+      where: { id: collectorUserId },
+      select: { id: true, name: true, role: true }
+    })
+
+    if (!collectorUser) {
+      return NextResponse.json({ error: 'Collector user not found' }, { status: 404 })
+    }
+
+    if (collectorUser.role !== 'COLLECTOR') {
+      return NextResponse.json(
+        { error: 'User must have COLLECTOR role' },
         { status: 400 }
       )
     }
@@ -44,21 +61,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
-    if (order.status !== 'PENDING') {
+    if (order.status !== 'DELIVERED') {
       return NextResponse.json(
-        { error: `Order cannot be approved. Current status: ${order.status}` },
+        { error: `Order must be DELIVERED before assigning collector. Current status: ${order.status}` },
         { status: 400 }
       )
     }
 
-    // Update the order to APPROVED status
+    // Only assign if there's a balance to collect
+    if (Number(order.balance) <= 0) {
+      return NextResponse.json(
+        { error: 'Order has no balance to collect. Amount paid equals total amount.' },
+        { status: 400 }
+      )
+    }
+
+    // Update the order with collector assignment
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
       data: {
-        status: 'APPROVED',
-        approved_by: user.id,
-        approved_at: new Date(),
-        admin_notes: notes || null,
+        collector_assigned_to: collectorUser.id,
+        collector_assigned_at: new Date(),
       },
       include: {
         sales_agent: {
@@ -66,7 +89,13 @@ export async function POST(request: NextRequest) {
             id: true,
             name: true,
             email: true,
-            role: true
+          }
+        },
+        collector_user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
           }
         },
         survey: {
@@ -74,7 +103,6 @@ export async function POST(request: NextRequest) {
             id: true,
             store_name: true,
             address: true,
-            customer_status: true
           }
         }
       }
@@ -82,13 +110,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Order approved successfully',
+      message: 'Collector assigned successfully',
       order: updatedOrder
     })
   } catch (error: any) {
-    console.error('Error approving order:', error)
+    console.error('Error assigning collector:', error)
     return NextResponse.json(
-      { error: 'Failed to approve order', details: error.message },
+      { error: 'Failed to assign collector', details: error.message },
       { status: 500 }
     )
   }

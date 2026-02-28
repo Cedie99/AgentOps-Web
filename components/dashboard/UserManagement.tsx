@@ -63,6 +63,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
+import { useToast } from '@/hooks/use-toast'
 
 // All user roles (unified)
 type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'SURVEYOR' | 'SALES' | 'DELIVERY' | 'COLLECTOR'
@@ -96,12 +97,15 @@ const getRoleBadgeColor = (role: UserRole) => {
 }
 
 const UserManagement: React.FC = () => {
+  const { toast } = useToast()
+
   // Local state
   const [users, setUsers] = useState<User[]>([])
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null)
   const [globalFilter, setGlobalFilter] = useState('')
   const [filterBy, setFilterBy] = useState<'all' | 'name' | 'email' | 'role'>('all')
   const [isLoading, setIsLoading] = useState(false)
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [error, setError] = useState('')
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -171,6 +175,8 @@ const UserManagement: React.FC = () => {
     } catch (err) {
       console.error('Error fetching users:', err)
       setError('Failed to load users')
+    } finally {
+      setIsInitialLoading(false)
     }
   }
 
@@ -232,6 +238,28 @@ const UserManagement: React.FC = () => {
         throw new Error(data.error || 'Failed to update user')
       }
 
+      // Build success message
+      const updates: string[] = []
+      if (formData.password) {
+        updates.push('password updated')
+      }
+      if (formData.status !== editingUser.status) {
+        updates.push(`account ${formData.status.toLowerCase()}`)
+      }
+      if (formData.name !== editingUser.name || formData.email !== editingUser.email || formData.role !== editingUser.role) {
+        updates.push('details updated')
+      }
+
+      const updateMessage = updates.length > 0
+        ? `User updated successfully (${updates.join(', ')})`
+        : 'User updated successfully'
+
+      // Show success toast
+      toast({
+        title: 'Success',
+        description: updateMessage,
+      })
+
       // Reset form and close modal
       setFormData({ name: '', email: '', password: '', role: 'SALES', status: 'ACTIVE' })
       setIsEditDialogOpen(false)
@@ -242,6 +270,11 @@ const UserManagement: React.FC = () => {
 
     } catch (err: any) {
       setError(err.message)
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: err.message || 'Failed to update user',
+      })
     } finally {
       setIsLoading(false)
     }
@@ -387,6 +420,73 @@ const UserManagement: React.FC = () => {
     },
     onGlobalFilterChange: setGlobalFilter,
   })
+
+  if (isInitialLoading) {
+    return (
+      <div className="space-y-6">
+        {/* Header Skeleton */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="h-9 w-64 bg-muted animate-pulse rounded mb-2" />
+            <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+          </div>
+          <div className="h-10 w-48 bg-muted animate-pulse rounded" />
+        </div>
+
+        {/* Card Skeleton */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-4">
+              <div className="h-10 flex-1 max-w-md bg-muted animate-pulse rounded" />
+              <div className="h-10 w-[180px] bg-muted animate-pulse rounded" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead><div className="h-4 w-24 bg-muted animate-pulse rounded" /></TableHead>
+                    <TableHead><div className="h-4 w-20 bg-muted animate-pulse rounded" /></TableHead>
+                    <TableHead><div className="h-4 w-16 bg-muted animate-pulse rounded" /></TableHead>
+                    <TableHead><div className="h-4 w-20 bg-muted animate-pulse rounded" /></TableHead>
+                    <TableHead><div className="h-4 w-16 bg-muted animate-pulse rounded" /></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
+                          <div>
+                            <div className="h-4 w-32 bg-muted animate-pulse rounded mb-1" />
+                            <div className="h-3 w-48 bg-muted animate-pulse rounded" />
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell><div className="h-6 w-20 bg-muted animate-pulse rounded" /></TableCell>
+                      <TableCell><div className="h-6 w-16 bg-muted animate-pulse rounded" /></TableCell>
+                      <TableCell><div className="h-4 w-24 bg-muted animate-pulse rounded" /></TableCell>
+                      <TableCell><div className="h-8 w-8 bg-muted animate-pulse rounded" /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {/* Pagination Skeleton */}
+            <div className="flex items-center justify-between py-4">
+              <div className="h-4 w-48 bg-muted animate-pulse rounded" />
+              <div className="flex gap-2">
+                <div className="h-10 w-24 bg-muted animate-pulse rounded" />
+                <div className="h-10 w-24 bg-muted animate-pulse rounded" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

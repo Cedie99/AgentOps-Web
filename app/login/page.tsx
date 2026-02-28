@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -65,13 +66,22 @@ export default function LoginPage() {
       <BackgroundRippleEffect rows={20} cols={40} cellSize={50} />
       <Card className="w-full max-w-md shadow-xl border-border relative z-10">
         <CardHeader className="space-y-4 text-center">
-          <div>
-            <CardTitle className="text-2xl font-bold text-foreground">
-              Welcome to <span className="text-emerald-600 dark:text-emerald-400">AgentOps</span>
-            </CardTitle>
-            <CardDescription className="text-base mt-2">
-              Sign in to access your dashboard
-            </CardDescription>
+          <div className="flex flex-col items-center gap-4">
+            <Image
+              src="/logo.png"
+              alt="Oracle Petroleum Corporation"
+              width={80}
+              height={80}
+              className="rounded-xl"
+            />
+            <div>
+              <CardTitle className="text-2xl font-bold text-foreground">
+                Oracle Petroleum Corporation
+              </CardTitle>
+              <CardDescription className="text-base mt-2">
+                Sign in to access your dashboard
+              </CardDescription>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

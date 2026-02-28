@@ -24,6 +24,12 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  TrendingUp,
+  UserPlus,
+  Users,
+  MapPin,
+  Phone,
+  Building2,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -65,8 +71,8 @@ interface StoreWithStats {
 }
 
 const statusColors = {
-  PROSPECT: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  NEW: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+  PROSPECT: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+  NEW: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
   EXISTING: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
 }
 
@@ -126,12 +132,23 @@ export default function SalesActivitiesPage() {
       cell: ({ row }) => {
         const store = row.original
         return (
-          <div className="flex flex-col">
-            <p className="font-semibold text-foreground">{store.store_name}</p>
-            <p className="text-xs text-muted-foreground">{store.address}</p>
-            {store.contact_number && (
-              <p className="text-xs text-muted-foreground">{store.contact_number}</p>
-            )}
+          <div className="flex items-start gap-3">
+            <div className="mt-1">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <p className="font-semibold text-foreground">{store.store_name}</p>
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <MapPin className="h-3 w-3" />
+                <span>{store.address}</span>
+              </div>
+              {store.contact_number && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Phone className="h-3 w-3" />
+                  <span>{store.contact_number}</span>
+                </div>
+              )}
+            </div>
           </div>
         )
       },
@@ -194,9 +211,17 @@ export default function SalesActivitiesPage() {
       cell: ({ row }) => {
         const count = row.getValue('total_activities') as number
         return (
-          <Badge variant={count > 0 ? 'default' : 'secondary'} className="font-mono">
-            {count}
-          </Badge>
+          <div className="flex items-center justify-center">
+            <div className={`
+              w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
+              ${count > 0
+                ? 'bg-emerald-500 text-white'
+                : 'bg-gray-700 text-gray-400'
+              }
+            `}>
+              {count}
+            </div>
+          </div>
         )
       },
     },
@@ -261,6 +286,78 @@ export default function SalesActivitiesPage() {
   const newStores = stores.filter(s => s.customer_status === 'NEW').length
   const existingStores = stores.filter(s => s.customer_status === 'EXISTING').length
 
+  if (loading) {
+    return (
+      <div className="h-[calc(100vh-140px)] flex flex-col gap-6">
+        {/* Header Skeleton */}
+        <div>
+          <div className="h-9 w-64 bg-muted animate-pulse rounded mb-2" />
+          <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+        </div>
+
+        {/* Stats Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="h-3 w-20 bg-muted animate-pulse rounded mb-2" />
+                  <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+                </div>
+                <div className="h-10 w-10 bg-muted animate-pulse rounded" />
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        {/* Filters Skeleton */}
+        <Card className="p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="h-10 flex-1 max-w-sm bg-muted animate-pulse rounded" />
+            <div className="h-10 w-[180px] bg-muted animate-pulse rounded" />
+          </div>
+        </Card>
+
+        {/* Table Skeleton */}
+        <Card className="flex-1">
+          <CardContent className="p-6">
+            <div className="rounded-md border">
+              <div className="p-4">
+                {/* Table header skeleton */}
+                <div className="flex gap-4 mb-4 pb-3 border-b">
+                  <div className="h-4 w-32 bg-muted animate-pulse rounded" />
+                  <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                  <div className="h-4 w-28 bg-muted animate-pulse rounded" />
+                  <div className="h-4 w-32 bg-muted animate-pulse rounded" />
+                  <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                  <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                </div>
+                {/* Table rows skeleton */}
+                <div className="space-y-3">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div key={i} className="flex gap-4 items-center py-2">
+                      <div className="h-12 w-full bg-muted animate-pulse rounded" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Pagination Skeleton */}
+        <div className="flex items-center justify-between px-2">
+          <div className="h-4 w-48 bg-muted animate-pulse rounded" />
+          <div className="flex gap-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-8 w-8 bg-muted animate-pulse rounded" />
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="h-[calc(100vh-140px)] flex flex-col gap-6">
       {/* Header */}
@@ -273,43 +370,43 @@ export default function SalesActivitiesPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950 dark:to-emerald-900 border-emerald-200 dark:border-emerald-800">
+        <Card className="p-4 bg-[#1a1a1a] border-green-500/50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">Total Stores</p>
-              <p className="text-2xl font-bold text-emerald-900 dark:text-emerald-100 mt-1">{totalStores}</p>
+              <p className="text-xs text-gray-400 mb-2">Total Stores</p>
+              <p className="text-3xl font-bold text-green-500">{totalStores}</p>
             </div>
-            <Store className="h-10 w-10 text-emerald-600 dark:text-emerald-400 opacity-80" />
+            <Store className="h-5 w-5 text-green-500" />
           </div>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
+        <Card className="p-4 bg-[#1a1a1a] border-yellow-500/50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">Prospect</p>
-              <p className="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">{prospectStores}</p>
+              <p className="text-xs text-gray-400 mb-2">Prospect</p>
+              <p className="text-3xl font-bold text-yellow-500">{prospectStores}</p>
             </div>
-            <Activity className="h-10 w-10 text-blue-600 dark:text-blue-400 opacity-80" />
+            <TrendingUp className="h-5 w-5 text-yellow-500" />
           </div>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800">
+        <Card className="p-4 bg-[#1a1a1a] border-blue-500/50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-green-700 dark:text-green-300">New</p>
-              <p className="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">{newStores}</p>
+              <p className="text-xs text-gray-400 mb-2">New</p>
+              <p className="text-3xl font-bold text-blue-500">{newStores}</p>
             </div>
-            <Activity className="h-10 w-10 text-green-600 dark:text-green-400 opacity-80" />
+            <UserPlus className="h-5 w-5 text-blue-500" />
           </div>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800">
+        <Card className="p-4 bg-[#1a1a1a] border-purple-500/50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-purple-700 dark:text-purple-300">Existing</p>
-              <p className="text-2xl font-bold text-purple-900 dark:text-purple-100 mt-1">{existingStores}</p>
+              <p className="text-xs text-gray-400 mb-2">Existing</p>
+              <p className="text-3xl font-bold text-purple-500">{existingStores}</p>
             </div>
-            <Activity className="h-10 w-10 text-purple-600 dark:text-purple-400 opacity-80" />
+            <Users className="h-5 w-5 text-purple-500" />
           </div>
         </Card>
       </div>

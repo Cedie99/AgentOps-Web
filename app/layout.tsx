@@ -16,8 +16,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AgentOps Admin - Field Operations Management",
+  title: "Oracle Petroleum Corporation - Admin Dashboard",
   description: "Comprehensive field operations management system for surveyors, sales, logistics, and audit teams",
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
 };
 
 export default function RootLayout({

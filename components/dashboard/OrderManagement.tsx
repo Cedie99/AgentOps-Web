@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { formatPaymentTerms } from '@/lib/format-payment-terms'
 import {
   Table,
   TableBody,
@@ -39,19 +40,11 @@ import {
   User,
   Calendar,
   Package,
-  Eye,
-  Filter,
-  Download,
   Clock,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight,
-  Edit,
-  Plus,
-  Minus,
-  Trash2,
-  Save
+  ChevronsRight
 } from 'lucide-react'
 import { format } from 'date-fns'
 import {
@@ -66,7 +59,7 @@ import {
 
 interface Order {
   id: number
-  transaction_number: string
+  order_number: string
   store_name: string
   sales_agent: {
     id: number
@@ -74,19 +67,30 @@ interface Order {
     email: string
   }
   total_amount: number
+  amount_paid: number
+  balance: number
   payment_terms: string
   status: string
-  requires_delivery: boolean
-  delivery_date: string | null
   created_at: string
-  items: Array<{
+  products: string
+  approver?: {
     id: number
-    product_name: string
-    quantity: number
-    unit_price: number
-    total_amount: number
-  }>
+    name: string
+    email: string
+  }
+  delivery_user?: {
+    id: number
+    name: string
+    email: string
+  }
+  collector_user?: {
+    id: number
+    name: string
+    email: string
+  }
   survey: {
+    id: number
+    store_name: string
     customer_status: string
   }
 }
@@ -103,39 +107,29 @@ export default function OrderManagement() {
   const [showAssignDialog, setShowAssignDialog] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [adminNotes, setAdminNotes] = useState('')
-  const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED'>('PENDING')
+  const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'DELIVERY'>('PENDING')
   const [assignType, setAssignType] = useState<'DELIVERY' | 'COLLECTOR'>('DELIVERY')
   const [selectedAssignee, setSelectedAssignee] = useState('')
   const [deliveryUsers, setDeliveryUsers] = useState<any[]>([])
   const [collectorUsers, setCollectorUsers] = useState<any[]>([])
   const [sorting, setSorting] = useState<SortingState>([])
   const [showEditDialog, setShowEditDialog] = useState(false)
-  const [editedItems, setEditedItems] = useState<Array<{
-    id: number
-    product_name: string
-    quantity: number
-    unit_price: number
-    total_amount: number
-  }>>([])
-  const [editedPaymentTerms, setEditedPaymentTerms] = useState('')
-  const [editedDeliveryDate, setEditedDeliveryDate] = useState<Date | null>(null)
+
+  const [allOrders, setAllOrders] = useState<Order[]>([])
 
   useEffect(() => {
     fetchOrders()
     fetchUsers()
-  }, [activeTab])
+  }, [])
 
   const fetchOrders = async () => {
     try {
       setLoading(true)
-      const status = activeTab === 'PENDING' ? 'PENDING' : 'APPROVED'
-      const url = `/api/orders?status=${status}`
-
-      const response = await fetch(url)
+      const response = await fetch('/api/orders')
       const data = await response.json()
 
       if (response.ok) {
-        setOrders(data.orders)
+        setAllOrders(data.orders)
       } else {
         toast({
           variant: 'destructive',
@@ -154,6 +148,18 @@ export default function OrderManagement() {
     }
   }
 
+  // Filter orders based on active tab (client-side filtering)
+  const filteredOrders = useMemo(() => {
+    if (activeTab === 'PENDING') {
+      return allOrders.filter(o => o.status === 'PENDING')
+    } else if (activeTab === 'APPROVED') {
+      return allOrders.filter(o => o.status === 'APPROVED' && !o.delivery_user)
+    } else if (activeTab === 'DELIVERY') {
+      return allOrders.filter(o => o.status === 'APPROVED' && o.delivery_user)
+    }
+    return allOrders
+  }, [allOrders, activeTab])
+
   const fetchUsers = async () => {
     try {
       const response = await fetch('/api/users')
@@ -168,7 +174,7 @@ export default function OrderManagement() {
     }
   }
 
-  const handleApproveOrder = async (action: 'APPROVE' | 'REJECT') => {
+  const handleApproveOrder = useCallback(async (action: 'APPROVE' | 'REJECT') => {
     if (!selectedOrder) return
 
     setActionLoading(true)
@@ -209,7 +215,7 @@ export default function OrderManagement() {
     } finally {
       setActionLoading(false)
     }
-  }
+  }, [selectedOrder, adminNotes, toast])
 
   const handleVoidOrder = async () => {
     if (!selectedOrder) return
@@ -297,101 +303,6 @@ export default function OrderManagement() {
     }
   }
 
-  const handleEditOrder = () => {
-    if (!selectedOrder) return
-    router.push(`/dashboard/sales/orders/${selectedOrder.id}/edit`)
-  }
-
-  const updateItemQuantity = (itemId: number, newQuantity: number) => {
-    if (newQuantity < 1) return
-
-    setEditedItems(items =>
-      items.map(item =>
-        item.id === itemId
-          ? {
-              ...item,
-              quantity: newQuantity,
-              total_amount: newQuantity * parseFloat(item.unit_price.toString())
-            }
-          : item
-      )
-    )
-  }
-
-  const updateItemPrice = (itemId: number, newPrice: number) => {
-    if (newPrice < 0) return
-
-    setEditedItems(items =>
-      items.map(item =>
-        item.id === itemId
-          ? {
-              ...item,
-              unit_price: newPrice,
-              total_amount: item.quantity * newPrice
-            }
-          : item
-      )
-    )
-  }
-
-  const removeItem = (itemId: number) => {
-    setEditedItems(items => items.filter(item => item.id !== itemId))
-  }
-
-  const calculateEditedTotal = () => {
-    return editedItems.reduce((sum, item) => sum + parseFloat(item.total_amount.toString()), 0)
-  }
-
-  const handleSaveOrder = async () => {
-    if (!selectedOrder || editedItems.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Order must have at least one item',
-      })
-      return
-    }
-
-    setActionLoading(true)
-    try {
-      const response = await fetch('/api/orders/update', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: selectedOrder.id,
-          items: editedItems,
-          payment_terms: editedPaymentTerms,
-          delivery_date: editedDeliveryDate?.toISOString(),
-          total_amount: calculateEditedTotal()
-        })
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'Order updated successfully',
-        })
-        setShowEditDialog(false)
-        fetchOrders()
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: data.error || 'Failed to update order',
-        })
-      }
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to update order',
-      })
-    } finally {
-      setActionLoading(false)
-    }
-  }
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, any> = {
@@ -425,10 +336,10 @@ export default function OrderManagement() {
   const columns = useMemo<ColumnDef<Order>[]>(
     () => [
       {
-        accessorKey: 'transaction_number',
+        accessorKey: 'order_number',
         header: 'Order #',
         cell: ({ row }) => (
-          <div className="font-medium">{row.original.transaction_number}</div>
+          <div className="font-medium">{row.original.order_number}</div>
         ),
       },
       {
@@ -468,7 +379,7 @@ export default function OrderManagement() {
       {
         accessorKey: 'payment_terms',
         header: 'Payment',
-        cell: ({ row }) => <Badge variant="outline">{row.original.payment_terms}</Badge>,
+        cell: ({ row }) => <Badge variant="outline">{formatPaymentTerms(row.original.payment_terms)}</Badge>,
       },
       {
         accessorKey: 'created_at',
@@ -481,7 +392,7 @@ export default function OrderManagement() {
 
   // Initialize TanStack Table
   const table = useReactTable({
-    data: orders,
+    data: filteredOrders,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -492,39 +403,77 @@ export default function OrderManagement() {
     },
     initialState: {
       pagination: {
-        pageSize: 20,
+        pageSize: 10,
       },
     },
   })
 
   // Calculate statistics
-  const stats = {
-    pending: orders.filter(o => o.status === 'PENDING').length,
-    approved: orders.filter(o => o.status === 'APPROVED').length,
-    processing: orders.filter(o => o.status === 'PROCESSING').length,
-    totalValue: orders.reduce((sum, o) => sum + parseFloat(o.total_amount.toString()), 0),
-  }
+  const stats = useMemo(() => ({
+    pending: allOrders.filter(o => o.status === 'PENDING').length,
+    approved: allOrders.filter(o => o.status === 'APPROVED' && !o.delivery_user).length,
+    delivery: allOrders.filter(o => o.status === 'APPROVED' && o.delivery_user).length,
+    totalValue: allOrders.reduce((sum, o) => sum + parseFloat(o.total_amount.toString()), 0),
+  }), [allOrders])
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Loading orders...</CardTitle>
-        </CardHeader>
-      </Card>
+      <div className="space-y-6">
+        {/* Statistics Cards Skeleton */}
+        <div className="grid gap-4 md:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                <div className="h-4 w-4 bg-muted animate-pulse rounded" />
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 w-16 bg-muted animate-pulse rounded mb-2" />
+                <div className="h-3 w-32 bg-muted animate-pulse rounded" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Table Skeleton */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="h-6 w-48 bg-muted animate-pulse rounded mb-2" />
+                <div className="h-4 w-64 bg-muted animate-pulse rounded" />
+              </div>
+              <div className="flex gap-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-9 w-24 bg-muted animate-pulse rounded" />
+                ))}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex gap-4 items-center">
+                  <div className="h-12 flex-1 bg-muted animate-pulse rounded" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      {/* Statistics Cards */}
+      {/* Statistics Cards - Memoized to prevent re-render */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Orders</CardTitle>
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent key={`stats-pending-${stats.pending}`}>
             <div className="text-2xl font-bold">{stats.pending}</div>
             <p className="text-xs text-muted-foreground">Awaiting approval</p>
           </CardContent>
@@ -532,12 +481,12 @@ export default function OrderManagement() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Processing</CardTitle>
+            <CardTitle className="text-sm font-medium">Approved Orders</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.processing}</div>
-            <p className="text-xs text-muted-foreground">In progress</p>
+          <CardContent key={`stats-approved-${stats.approved}`}>
+            <div className="text-2xl font-bold">{stats.approved}</div>
+            <p className="text-xs text-muted-foreground">Ready for delivery</p>
           </CardContent>
         </Card>
 
@@ -546,7 +495,7 @@ export default function OrderManagement() {
             <CardTitle className="text-sm font-medium">Total Value</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent key={`stats-total-${stats.totalValue}`}>
             <div className="text-2xl font-bold">
               ₱{stats.totalValue.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
             </div>
@@ -571,12 +520,30 @@ export default function OrderManagement() {
                 className="gap-2"
               >
                 <Clock className="h-4 w-4" />
-                Pending ({orders.filter(o => o.status === 'PENDING').length})
+                Pending
+              </Button>
+              <Button
+                variant={activeTab === 'APPROVED' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveTab('APPROVED')}
+                className="gap-2"
+              >
+                <Check className="h-4 w-4" />
+                Approved
+              </Button>
+              <Button
+                variant={activeTab === 'DELIVERY' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveTab('DELIVERY')}
+                className="gap-2"
+              >
+                <Truck className="h-4 w-4" />
+                In Delivery
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent key={`table-${activeTab}`}>
           <div className="space-y-4">
             <div className="rounded-md border">
               <Table>
@@ -685,8 +652,8 @@ export default function OrderManagement() {
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Order Details - {selectedOrder?.transaction_number}</DialogTitle>
-            <DialogDescription>Complete order information and items</DialogDescription>
+            <DialogTitle>Order Details - {selectedOrder?.order_number}</DialogTitle>
+            <DialogDescription>Complete order information</DialogDescription>
           </DialogHeader>
 
           {selectedOrder && (
@@ -706,62 +673,53 @@ export default function OrderManagement() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Payment Terms</p>
-                  <p className="text-sm">{selectedOrder.payment_terms}</p>
+                  <p className="text-sm">{formatPaymentTerms(selectedOrder.payment_terms)}</p>
                 </div>
-                {selectedOrder.delivery_date && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Delivery Date</p>
-                    <p className="text-sm">{format(new Date(selectedOrder.delivery_date), 'PPP')}</p>
-                  </div>
-                )}
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Customer Type</p>
+                  {getCustomerStatusBadge(selectedOrder.survey.customer_status)}
+                </div>
               </div>
 
               <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">Order Items</p>
-                <div className="border rounded-md">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Product</TableHead>
-                        <TableHead>Qty</TableHead>
-                        <TableHead>Unit Price</TableHead>
-                        <TableHead>Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedOrder.items.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell>{item.product_name}</TableCell>
-                          <TableCell>{item.quantity}</TableCell>
-                          <TableCell>₱{parseFloat(item.unit_price.toString()).toFixed(2)}</TableCell>
-                          <TableCell className="font-semibold">
-                            ₱{parseFloat(item.total_amount.toString()).toFixed(2)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-right font-semibold">Total:</TableCell>
-                        <TableCell className="font-bold">
-                          ₱{parseFloat(selectedOrder.total_amount.toString()).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Products</p>
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="text-sm">{selectedOrder.products}</p>
                 </div>
               </div>
+
+              <div className="grid grid-cols-3 gap-4 p-4 bg-muted rounded-md">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Amount</p>
+                  <p className="text-lg font-bold">
+                    ₱{parseFloat(selectedOrder.total_amount.toString()).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Amount Paid</p>
+                  <p className="text-lg font-bold text-green-600">
+                    ₱{parseFloat(selectedOrder.amount_paid.toString()).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Balance</p>
+                  <p className="text-lg font-bold text-orange-600">
+                    ₱{parseFloat(selectedOrder.balance.toString()).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+
+              {selectedOrder.approver && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Approved By</p>
+                  <p className="text-sm">{selectedOrder.approver.name}</p>
+                </div>
+              )}
             </div>
           )}
 
           {/* Action Buttons Footer */}
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button
-              variant="outline"
-              onClick={handleEditOrder}
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Order
-            </Button>
-
             {activeTab === 'PENDING' ? (
               <>
                 <Button
@@ -821,7 +779,7 @@ export default function OrderManagement() {
       <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Approve Order - {selectedOrder?.transaction_number}</DialogTitle>
+            <DialogTitle>Approve Order - {selectedOrder?.order_number}</DialogTitle>
             <DialogDescription>
               Approve this order to make it ready for assignment.
             </DialogDescription>
@@ -863,7 +821,7 @@ export default function OrderManagement() {
       <Dialog open={showVoidDialog} onOpenChange={setShowVoidDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Void Order - {selectedOrder?.transaction_number}</DialogTitle>
+            <DialogTitle>Void Order - {selectedOrder?.order_number}</DialogTitle>
             <DialogDescription className="text-destructive">
               This will reject and void this order. This action cannot be undone.
             </DialogDescription>
@@ -906,7 +864,7 @@ export default function OrderManagement() {
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Order - {selectedOrder?.transaction_number}</DialogTitle>
+            <DialogTitle>Assign Order - {selectedOrder?.order_number}</DialogTitle>
             <DialogDescription>
               Assign this order to delivery or collector
             </DialogDescription>
@@ -961,191 +919,6 @@ export default function OrderManagement() {
       </Dialog>
 
      
-      {/* Edit Order Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-[90vw] w-[90vw] max-h-[95vh] flex flex-col p-0">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b">
-            <DialogTitle>Edit Order - {selectedOrder?.transaction_number}</DialogTitle>
-            <DialogDescription>
-              Modify order items, quantities, prices, and payment terms
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedOrder && (
-            <div className="space-y-6 overflow-y-auto px-6 py-4" style={{ maxHeight: 'calc(95vh - 180px)' }}>
-              {/* Order Info */}
-              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Store</p>
-                  <p className="text-sm font-semibold">{selectedOrder.store_name}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Sales Agent</p>
-                  <p className="text-sm font-semibold">{selectedOrder.sales_agent.name}</p>
-                </div>
-              </div>
-
-              {/* Payment Terms */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Payment Terms</label>
-                <Select value={editedPaymentTerms} onValueChange={setEditedPaymentTerms}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CASH">Cash</SelectItem>
-                    <SelectItem value="COD">COD</SelectItem>
-                    <SelectItem value="7 Days">7 Days</SelectItem>
-                    <SelectItem value="CREDIT_7">7 Days Credit</SelectItem>
-                    <SelectItem value="15 Days">15 Days</SelectItem>
-                    <SelectItem value="CREDIT_15">15 Days Credit</SelectItem>
-                    <SelectItem value="30 Days">30 Days</SelectItem>
-                    <SelectItem value="CREDIT_30">30 Days Credit</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Order Items */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">Order Items</label>
-                  <Badge variant="secondary">{editedItems.length} items</Badge>
-                </div>
-
-                <div className="space-y-3">
-                  {editedItems.map((item, index) => (
-                    <div key={item.id} className="bg-white border-2 border-slate-200 rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
-                      {/* Product Name Header */}
-                      <div className="mb-4 pb-3 border-b border-slate-200">
-                        <div className="flex items-center gap-3">
-                          <span className="flex-shrink-0 w-7 h-7 rounded-md bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                            {index + 1}
-                          </span>
-                          <h4 className="font-semibold text-slate-900 text-lg">{item.product_name}</h4>
-                        </div>
-                      </div>
-
-                      {/* Controls Grid */}
-                      <div className="grid grid-cols-3 gap-6">
-                        {/* Quantity */}
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-600 mb-2">Quantity</label>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-10 w-10 p-0 rounded-md border-2 hover:bg-slate-50"
-                              onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
-                              disabled={item.quantity <= 1}
-                            >
-                              <Minus className="h-4 w-4" />
-                            </Button>
-                            <input
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => updateItemQuantity(item.id, parseInt(e.target.value) || 1)}
-                              className="flex-1 h-10 text-center text-base border-2 border-slate-300 rounded-md px-3 font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                              min="1"
-                            />
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-10 w-10 p-0 rounded-md border-2 hover:bg-slate-50"
-                              onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Unit Price */}
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-600 mb-2">Unit Price</label>
-                          <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-base">₱</span>
-                            <input
-                              type="text"
-                              value={Math.abs(parseFloat(item.unit_price.toString())).toFixed(2)}
-                              onChange={(e) => {
-                                const value = e.target.value.replace(/[^0-9.]/g, '')
-                                updateItemPrice(item.id, Math.abs(parseFloat(value)) || 0)
-                              }}
-                              className="w-full h-10 pl-9 pr-4 text-base border-2 border-slate-300 rounded-md font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Total */}
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-600 mb-2">Total Amount</label>
-                          <div className="h-10 flex items-center justify-between bg-green-50 border-2 border-green-200 rounded-md px-4">
-                            <span className="font-bold text-green-700 text-lg">
-                              ₱{Math.abs(parseFloat(item.total_amount.toString())).toFixed(2)}
-                            </span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-md -mr-1"
-                              onClick={() => removeItem(item.id)}
-                              disabled={editedItems.length <= 1}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Order Total */}
-                  <div className="border-t-2 pt-3 mt-4">
-                    <div className="flex justify-between items-center px-4">
-                      <span className="font-bold text-lg">Order Total:</span>
-                      <span className="font-bold text-xl">
-                        ₱{calculateEditedTotal().toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Summary of Changes */}
-              {calculateEditedTotal() !== parseFloat(selectedOrder.total_amount.toString()) && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-sm text-blue-800">
-                    <Package className="h-4 w-4" />
-                    <span className="font-medium">
-                      Total changed from ₱{parseFloat(selectedOrder.total_amount.toString()).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                      {' '}to ₱{calculateEditedTotal().toLocaleString('en-PH', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter className="gap-2 px-6 py-4 border-t bg-background">
-            <Button variant="outline" onClick={() => setShowEditDialog(false)} disabled={actionLoading}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveOrder}
-              disabled={actionLoading || editedItems.length === 0}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {actionLoading ? (
-                'Saving...'
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Changes
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-  
     </div>
   )
 }

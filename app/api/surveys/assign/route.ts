@@ -58,6 +58,13 @@ export async function POST(request: NextRequest) {
       select: { id: true }
     })
 
+    // First, deactivate all existing assignments for this survey (to ensure only 1 agent)
+    await prisma.$executeRaw`
+      UPDATE survey_assignments
+      SET status = 'CANCELLED', updated_at = CURRENT_TIMESTAMP
+      WHERE survey_id = ${surveyId} AND status = 'ACTIVE'
+    `
+
     // Update the survey with assignment
     const updatedSurvey = await prisma.survey.update({
       where: { id: surveyId },
@@ -86,12 +93,12 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Create survey_assignment record for mobile app tracking
+    // Create new survey_assignment record (only one will be ACTIVE)
     await prisma.$executeRaw`
-      INSERT INTO survey_assignments (survey_id, sales_agent_id, assigned_by, status)
-      VALUES (${surveyId}, ${salesUser.id}, ${adminUser?.id}, 'ACTIVE')
+      INSERT INTO survey_assignments (survey_id, sales_agent_id, assigned_by, status, assigned_at, updated_at)
+      VALUES (${surveyId}, ${salesUser.id}, ${adminUser?.id}, 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       ON CONFLICT (survey_id, sales_agent_id) DO UPDATE
-      SET assigned_at = CURRENT_TIMESTAMP, status = 'ACTIVE'
+      SET assigned_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP, status = 'ACTIVE'
     `
 
     return NextResponse.json({ survey: updatedSurvey })

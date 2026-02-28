@@ -30,6 +30,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useToast } from '@/hooks/use-toast'
 import {
   Table,
   TableBody,
@@ -93,13 +94,13 @@ interface Survey {
   assigned_to_id: number | null
   assigned_to_name: string | null
   assigned_at: string | null
-  surveyor: {
+  surveyor?: {
     id: number
     name: string
     email: string
     role: string
   }
-  assigned_to: {
+  assigned_to?: {
     id: number
     name: string
     email: string
@@ -114,6 +115,8 @@ interface SalesUser {
 }
 
 const SurveyManagement: React.FC = () => {
+  const { toast } = useToast()
+
   // Local state
   const [surveys, setSurveys] = useState<Survey[]>([])
   const [salesUsers, setSalesUsers] = useState<SalesUser[]>([])
@@ -183,6 +186,11 @@ const SurveyManagement: React.FC = () => {
     setError('')
 
     try {
+      console.log('Assigning survey:', {
+        surveyId: surveyToAssign.id,
+        salesUserId: parseInt(selectedSalesUser)
+      })
+
       const response = await fetch('/api/surveys/assign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -193,13 +201,25 @@ const SurveyManagement: React.FC = () => {
       })
 
       const data = await response.json()
+      console.log('Assignment response:', { status: response.status, data })
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to assign survey')
+        const errorMessage = data.details || data.error || 'Failed to assign survey'
+        throw new Error(errorMessage)
       }
+
+      // Get the assigned user name for the toast message
+      const assignedUser = salesUsers.find(u => u.id === parseInt(selectedSalesUser))
 
       // Refresh surveys list
       await fetchSurveys()
+
+      // Show success toast
+      toast({
+        title: "Survey Assigned Successfully",
+        description: `${surveyToAssign.store_name} has been assigned to ${assignedUser?.name || 'sales agent'}.`,
+        variant: "default",
+      })
 
       // Close dialog
       setIsAssignDialogOpen(false)
@@ -207,7 +227,15 @@ const SurveyManagement: React.FC = () => {
       setSelectedSalesUser('')
 
     } catch (err: any) {
-      setError(err.message)
+      console.error('Assignment error:', err)
+      setError(err.message || 'Failed to assign survey')
+
+      // Show error toast
+      toast({
+        title: "Assignment Failed",
+        description: err.message || 'Failed to assign survey. Please try again.',
+        variant: "destructive",
+      })
     } finally {
       setIsAssigning(false)
     }
@@ -263,10 +291,12 @@ const SurveyManagement: React.FC = () => {
           <div className="flex items-center gap-2">
             <User className="h-4 w-4 text-muted-foreground" />
             <div className="text-sm">
-              <div className="font-medium">{survey.surveyor_name}</div>
-              <div className="text-xs text-muted-foreground">
-                {survey.surveyor.role}
-              </div>
+              <div className="font-medium">{survey.surveyor?.name || survey.surveyor_name}</div>
+              {survey.surveyor && (
+                <div className="text-xs text-muted-foreground">
+                  {survey.surveyor.role}
+                </div>
+              )}
             </div>
           </div>
         )
@@ -364,6 +394,123 @@ const SurveyManagement: React.FC = () => {
     onGlobalFilterChange: setGlobalFilter,
   })
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        {/* Header Skeleton */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="h-9 w-64 bg-muted animate-pulse rounded mb-2" />
+            <div className="h-4 w-80 bg-muted animate-pulse rounded" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-4 bg-muted animate-pulse rounded" />
+            <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+          </div>
+        </div>
+
+        {/* Search and Table Card Skeleton */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-4">
+              <div className="relative flex-1 max-w-md">
+                <div className="h-10 bg-muted animate-pulse rounded" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>
+                      <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                    </TableHead>
+                    <TableHead>
+                      <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                    </TableHead>
+                    <TableHead>
+                      <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                    </TableHead>
+                    <TableHead>
+                      <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                    </TableHead>
+                    <TableHead>
+                      <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                    </TableHead>
+                    <TableHead>
+                      <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                    </TableHead>
+                    <TableHead>
+                      <div className="h-4 w-20 bg-muted animate-pulse rounded" />
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <div className="flex items-start gap-2">
+                          <div className="h-4 w-4 bg-muted animate-pulse rounded mt-1" />
+                          <div className="flex-1 space-y-2">
+                            <div className="h-4 w-32 bg-muted animate-pulse rounded" />
+                            <div className="h-3 w-24 bg-muted animate-pulse rounded" />
+                            <div className="h-3 w-28 bg-muted animate-pulse rounded" />
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-start gap-2">
+                          <div className="h-4 w-4 bg-muted animate-pulse rounded" />
+                          <div className="space-y-2">
+                            <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                            <div className="h-3 w-20 bg-muted animate-pulse rounded" />
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="h-4 w-4 bg-muted animate-pulse rounded" />
+                          <div className="space-y-2">
+                            <div className="h-4 w-28 bg-muted animate-pulse rounded" />
+                            <div className="h-3 w-20 bg-muted animate-pulse rounded" />
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-6 w-24 bg-muted animate-pulse rounded" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-6 w-20 bg-muted animate-pulse rounded" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="h-4 w-4 bg-muted animate-pulse rounded" />
+                          <div className="h-4 w-24 bg-muted animate-pulse rounded" />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end">
+                          <div className="h-8 w-8 bg-muted animate-pulse rounded" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Pagination Skeleton */}
+            <div className="flex items-center justify-end space-x-2 py-4">
+              <div className="h-9 w-20 bg-muted animate-pulse rounded" />
+              <div className="h-9 w-16 bg-muted animate-pulse rounded" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -400,16 +547,8 @@ const SurveyManagement: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="h-64 flex items-center justify-center">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Loading surveys...</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="rounded-md border">
+          <>
+            <div className="rounded-md border">
                 <Table>
                   <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (
@@ -478,7 +617,6 @@ const SurveyManagement: React.FC = () => {
                 </Button>
               </div>
             </>
-          )}
         </CardContent>
       </Card>
 
@@ -740,14 +878,18 @@ const SurveyManagement: React.FC = () => {
                     <p className="text-sm text-muted-foreground">Name</p>
                     <p className="font-medium">{selectedSurvey.surveyor_name}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="font-medium">{selectedSurvey.surveyor.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Role</p>
-                    <Badge variant="outline">{selectedSurvey.surveyor.role}</Badge>
-                  </div>
+                  {selectedSurvey.surveyor && (
+                    <>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Email</p>
+                        <p className="font-medium">{selectedSurvey.surveyor.email}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Role</p>
+                        <Badge variant="outline">{selectedSurvey.surveyor.role}</Badge>
+                      </div>
+                    </>
+                  )}
                   <div>
                     <p className="text-sm text-muted-foreground">Captured Date</p>
                     <p className="font-medium">

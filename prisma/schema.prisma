@@ -123,6 +123,13 @@ model User {
   assigned_deliveries DeliveryOrder[] @relation("AssignedDeliveries")
   created_deliveries DeliveryOrder[]  @relation("CreatedDeliveries")
   sales_activities SalesActivity[]
+  survey_agent_assignments SurveyAssignment[] @relation("AssignedSurveyAgents")
+  survey_assignments_made SurveyAssignment[] @relation("SurveyAssigner")
+  orders_created Order[] @relation("OrderSalesAgent")
+  orders_approved Order[] @relation("OrderApprover")
+  orders_delivery_assigned Order[] @relation("OrderDeliveryUser")
+  orders_collector_assigned Order[] @relation("OrderCollectorUser")
+  collections Collection[] @relation("CollectionCollector")
 
   @@index([email])
   @@index([role])
@@ -288,9 +295,12 @@ model Survey {
   assigned_at         DateTime? @map("assigned_at")
 
   // Relations
-  surveyor    User          @relation("SurveyorSurveys", fields: [surveyor_id], references: [id])
-  assigned_to User?         @relation("AssignedSurveys", fields: [assigned_to_id], references: [id])
+  surveyor    User               @relation("SurveyorSurveys", fields: [surveyor_id], references: [id])
+  assigned_to User?              @relation("AssignedSurveys", fields: [assigned_to_id], references: [id])
   transactions Transaction[]
+  survey_assignments SurveyAssignment[]
+  orders Order[]
+  delivery_orders DeliveryOrder[] @relation("DeliveryOrderSurveys")
 
   @@index([surveyor_id])
   @@index([assigned_to_id])
@@ -298,6 +308,28 @@ model Survey {
   @@index([province])
   @@index([city])
   @@map("surveys")
+}
+
+model SurveyAssignment {
+  id              Int      @id @default(autoincrement())
+  survey_id       Int      @map("survey_id")
+  sales_agent_id  Int      @map("sales_agent_id")
+  assigned_by     Int?     @map("assigned_by")
+  assigned_at     DateTime @default(now()) @map("assigned_at")
+  status          String   @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  created_at      DateTime @default(now()) @map("created_at")
+  updated_at      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  survey      Survey @relation(fields: [survey_id], references: [id], onDelete: Cascade)
+  sales_agent User   @relation("AssignedSurveyAgents", fields: [sales_agent_id], references: [id], onDelete: Cascade)
+  assigner    User?  @relation("SurveyAssigner", fields: [assigned_by], references: [id], onDelete: SetNull)
+
+  @@unique([survey_id, sales_agent_id])
+  @@index([survey_id])
+  @@index([sales_agent_id])
+  @@index([status])
+  @@map("survey_assignments")
 }
 
 model GpsTrackingPoint {
@@ -410,12 +442,14 @@ model DeliveryOrder {
   assigned_user    User? @relation("AssignedDeliveries", fields: [assigned_to], references: [id])
   created_by_user  User  @relation("CreatedDeliveries", fields: [created_by], references: [id])
   transaction      Transaction @relation(fields: [transaction_id], references: [id])
+  survey           Survey? @relation("DeliveryOrderSurveys", fields: [survey_id], references: [id])
 
   @@index([assigned_to])
   @@index([created_by])
   @@index([status])
   @@index([delivery_date])
   @@index([transaction_id])
+  @@index([survey_id])
   @@map("delivery_orders")
 }
 
@@ -493,4 +527,107 @@ model SalesActivity {
   @@index([activity_date])
   @@index([follow_up_date])
   @@map("sales_activities")
+}
+
+// Orders from sales agents recording purchases
+model Order {
+  id                  Int       @id @default(autoincrement())
+  order_number        String    @unique @map("order_number")
+  survey_id           Int       @map("survey_id")
+  sales_agent_id      Int       @map("sales_agent_id")
+
+  // Store details
+  store_name          String    @map("store_name")
+  contact_person      String?   @map("contact_person")
+  contact_number      String?   @map("contact_number")
+  delivery_address    String    @map("delivery_address")
+
+  // Products (free text, comma-separated)
+  products            String                                  // e.g., "Product A, Product B, Product C"
+
+  // Payment details
+  total_amount        Decimal   @map("total_amount") @db.Decimal(12, 2)
+  payment_terms       String    @map("payment_terms")         // COD, CASH, CREDIT
+  amount_paid         Decimal   @default(0) @map("amount_paid") @db.Decimal(12, 2)
+  balance             Decimal   @map("balance") @db.Decimal(12, 2)
+
+  // Status tracking
+  status              String    @default("PENDING")           // PENDING, APPROVED, ASSIGNED_DELIVERY, DELIVERED, COLLECTED, COMPLETED
+
+  // Admin approval
+  approved_by         Int?      @map("approved_by")
+  approved_at         DateTime? @map("approved_at")
+  admin_notes         String?   @map("admin_notes")
+
+  // Delivery assignment
+  delivery_assigned_to    Int?      @map("delivery_assigned_to")
+  delivery_assigned_at    DateTime? @map("delivery_assigned_at")
+  delivery_completed_at   DateTime? @map("delivery_completed_at")
+  delivery_proof_url      String?   @map("delivery_proof_url")
+
+  // Collection assignment
+  collector_assigned_to   Int?      @map("collector_assigned_to")
+  collector_assigned_at   DateTime? @map("collector_assigned_at")
+  collection_completed_at DateTime? @map("collection_completed_at")
+
+  // Location
+  gps_latitude        Float?    @map("gps_latitude")
+  gps_longitude       Float?    @map("gps_longitude")
+
+  // Proof of purchase
+  proof_image_url     String    @map("proof_image_url")
+
+  created_at          DateTime  @default(now()) @map("created_at")
+  updated_at          DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  survey              Survey    @relation(fields: [survey_id], references: [id])
+  sales_agent         User      @relation("OrderSalesAgent", fields: [sales_agent_id], references: [id])
+  approver            User?     @relation("OrderApprover", fields: [approved_by], references: [id])
+  delivery_user       User?     @relation("OrderDeliveryUser", fields: [delivery_assigned_to], references: [id])
+  collector_user      User?     @relation("OrderCollectorUser", fields: [collector_assigned_to], references: [id])
+  collections         Collection[]
+
+  @@index([survey_id])
+  @@index([sales_agent_id])
+  @@index([status])
+  @@index([approved_by])
+  @@index([delivery_assigned_to])
+  @@index([collector_assigned_to])
+  @@index([created_at])
+  @@map("orders")
+}
+
+// Collections tracking for payment collection
+model Collection {
+  id                  Int       @id @default(autoincrement())
+  order_id            Int       @map("order_id")
+  collector_id        Int       @map("collector_id")
+
+  // Collection details
+  amount_collected    Decimal   @map("amount_collected") @db.Decimal(12, 2)
+  collection_date     DateTime  @default(now()) @map("collection_date")
+  payment_method      String    @map("payment_method")    // CASH, CHECK, BANK_TRANSFER
+
+  // Proof
+  receipt_image_url   String    @map("receipt_image_url")
+
+  // Location
+  gps_latitude        Float?    @map("gps_latitude")
+  gps_longitude       Float?    @map("gps_longitude")
+
+  // Notes
+  notes               String?
+
+  created_at          DateTime  @default(now()) @map("created_at")
+  updated_at          DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  order               Order     @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  collector           User      @relation("CollectionCollector", fields: [collector_id], references: [id])
+
+  @@index([order_id])
+  @@index([collector_id])
+  @@index([collection_date])
+  @@map("collections")
 }
