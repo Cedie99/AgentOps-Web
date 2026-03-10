@@ -55,7 +55,7 @@ interface SalesVisit {
     lng: number
     status: string
     customer_type: string
-  }
+  } | null
   user: {
     id: number
     name: string
@@ -335,8 +335,8 @@ export default function SalesVisitsPage() {
                         <h3 className="font-bold text-sm text-blue-700 dark:text-blue-400">
                           {visit.location_verified ? '✓ Visit Verified' : '⚠ Location Unverified'}
                         </h3>
-                        <p className="text-xs text-foreground font-semibold mt-1">{visit.store.name}</p>
-                        <p className="text-xs text-muted-foreground">{visit.store.address}</p>
+                        <p className="text-xs text-foreground font-semibold mt-1">{visit.store?.name || 'Unknown Store'}</p>
+                        <p className="text-xs text-muted-foreground">{visit.store?.address || 'No address available'}</p>
                         <div className="mt-2 space-y-1">
                           <p className="text-xs text-foreground">
                             <strong>Agent:</strong> {visit.user_name}
@@ -371,21 +371,25 @@ export default function SalesVisitsPage() {
               })}
 
               {/* Render Store Markers (Gray for reference) */}
-              {visits.map((visit) => (
-                <Marker
-                  key={`store-${visit.store.id}`}
-                  position={[visit.store.lat, visit.store.lng]}
-                  icon={storeIcon}
-                >
-                  <Popup>
-                    <div className="p-2">
-                      <h3 className="font-bold text-sm text-foreground">Store Location</h3>
-                      <p className="text-xs text-foreground">{visit.store.name}</p>
-                      <p className="text-xs text-muted-foreground">{visit.store.address}</p>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
+              {visits.map((visit) => {
+                if (!visit.store || !visit.store.lat || !visit.store.lng) return null
+
+                return (
+                  <Marker
+                    key={`store-${visit.store.id}`}
+                    position={[visit.store.lat, visit.store.lng]}
+                    icon={storeIcon}
+                  >
+                    <Popup>
+                      <div className="p-2">
+                        <h3 className="font-bold text-sm text-foreground">Store Location</h3>
+                        <p className="text-xs text-foreground">{visit.store.name}</p>
+                        <p className="text-xs text-muted-foreground">{visit.store.address}</p>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )
+              })}
             </MapContainer>
           ) : (
             <div className="h-full w-full flex items-center justify-center">
@@ -428,7 +432,7 @@ export default function SalesVisitsPage() {
                       <XCircle className="w-4 h-4 text-orange-600 mt-0.5" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-foreground truncate">{visit.store.name}</p>
+                      <p className="text-xs font-semibold text-foreground truncate">{visit.store?.name || 'Unknown Store'}</p>
                       <p className="text-[10px] text-muted-foreground">{visit.user_name}</p>
                       <p className="text-[10px] text-muted-foreground">
                         {new Date(visit.timestamp).toLocaleTimeString()}
