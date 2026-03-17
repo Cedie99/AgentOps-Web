@@ -112,6 +112,8 @@ model User {
   // Relations
   vehicle           Vehicle?         @relation(fields: [vehicle_id], references: [id])
   attendance_records Attendance[]
+  attendance_sessions AttendanceSession[] @relation("UserAttendanceSessions")
+  attendance_summary AttendanceSummary[] @relation("UserAttendanceSummary")
   visit_logs        VisitLog[]
   store_assignments          Store[]
   announcements              Announcement[]
@@ -239,6 +241,77 @@ model Attendance {
   @@index([work_date])
   @@index([auto_clocked_out])
   @@map("attendance")
+}
+
+// New model for multiple clock-in/out sessions per day
+model AttendanceSession {
+  id               Int       @id @default(autoincrement())
+  user_id          Int       @map("user_id")
+  work_date        String    @map("work_date")           // YYYY-MM-DD format
+  clock_in_time    DateTime  @map("clock_in_time")
+  clock_out_time   DateTime? @map("clock_out_time")
+  clock_in_lat     Float?    @map("clock_in_lat")
+  clock_in_long    Float?    @map("clock_in_long")
+  clock_out_lat    Float?    @map("clock_out_lat")
+  clock_out_long   Float?    @map("clock_out_long")
+  duration_minutes Int?      @map("duration_minutes")    // Duration in minutes for this session
+  auto_clocked_out Boolean   @default(false) @map("auto_clocked_out")
+  created_at       DateTime  @default(now()) @map("created_at")
+  updated_at       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user            User                @relation("UserAttendanceSessions", fields: [user_id], references: [id], onDelete: Cascade)
+  gps_points      GpsTrackingSessionPoint[]
+
+  @@index([user_id])
+  @@index([work_date])
+  @@index([work_date, user_id])
+  @@index([clock_out_time])
+  @@map("attendance_sessions")
+}
+
+// Summary table for daily attendance totals
+model AttendanceSummary {
+  id                  Int      @id @default(autoincrement())
+  user_id             Int      @map("user_id")
+  work_date           String   @map("work_date")           // YYYY-MM-DD format
+  total_hours         Decimal  @default(0) @map("total_hours") @db.Decimal(5, 2)  // Total hours worked (e.g., 8.50 for 8.5 hours)
+  total_sessions      Int      @default(0) @map("total_sessions") // Number of clock-in/out sessions
+  first_clock_in      DateTime @map("first_clock_in")
+  last_clock_out      DateTime? @map("last_clock_out")
+  created_at          DateTime @default(now()) @map("created_at")
+  updated_at          DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user               User     @relation("UserAttendanceSummary", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, work_date])
+  @@index([user_id])
+  @@index([work_date])
+  @@map("attendance_summary")
+}
+
+// GPS tracking points linked to sessions
+model GpsTrackingSessionPoint {
+  id              Int       @id @default(autoincrement())
+  user_id         Int       @map("user_id")
+  session_id      Int?      @map("session_id")  // Links to AttendanceSession
+  latitude        Float
+  longitude       Float
+  accuracy        Float?
+  timestamp       DateTime  @default(now())
+  speed           Float?
+  heading         Float?
+  synced_at       DateTime? @map("synced_at")
+  created_at      DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  session         AttendanceSession? @relation(fields: [session_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([session_id])
+  @@index([timestamp])
+  @@map("gps_tracking_session_points")
 }
 
 model Announcement {
