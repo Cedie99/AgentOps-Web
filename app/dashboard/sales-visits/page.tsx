@@ -1,32 +1,17 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import dynamic from 'next/dynamic'
 import { useTheme } from 'next-themes'
-import { Calendar, User, MapPin, CheckCircle, XCircle, Camera, FileText } from 'lucide-react'
+import { Calendar, User, MapPin, CheckCircle, XCircle, Camera, FileText, ChevronsUpDown, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import Image from 'next/image'
-
-// Dynamically import Leaflet components
-const MapContainer = dynamic(
-  () => import('react-leaflet').then((mod) => mod.MapContainer),
-  { ssr: false }
-)
-const TileLayer = dynamic(
-  () => import('react-leaflet').then((mod) => mod.TileLayer),
-  { ssr: false }
-)
-const Marker = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Marker),
-  { ssr: false }
-)
-const Popup = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Popup),
-  { ssr: false }
-)
+import { Map as MapCN, MapMarker, MarkerContent, MarkerPopup, MapControls, MapRoute } from '@/components/ui/map'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { cn } from '@/lib/utils'
 
 interface SalesAgent {
   id: number
@@ -81,103 +66,8 @@ export default function SalesVisitsPage() {
   const [visits, setVisits] = useState<SalesVisit[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(false)
-  const [leafletLoaded, setLeafletLoaded] = useState(false)
-  const [storeIcon, setStoreIcon] = useState<any>(null)
-  const [visitIconVerified, setVisitIconVerified] = useState<any>(null)
-  const [visitIconUnverified, setVisitIconUnverified] = useState<any>(null)
   const [selectedVisit, setSelectedVisit] = useState<SalesVisit | null>(null)
-
-  // Inject dark mode CSS for Leaflet popups
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const styleId = 'leaflet-popup-dark-mode'
-      if (!document.getElementById(styleId)) {
-        const style = document.createElement('style')
-        style.id = styleId
-        style.textContent = `
-          .leaflet-popup-content-wrapper {
-            background: #f1f5f9 !important;
-            color: #0f172a !important;
-            border-radius: 0.5rem !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-          }
-          .leaflet-popup-tip {
-            background: #f1f5f9 !important;
-          }
-          .dark .leaflet-popup-content-wrapper {
-            background: #1e293b !important;
-            color: #f8fafc !important;
-            border-radius: 0.5rem !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
-          }
-          .dark .leaflet-popup-tip {
-            background: #1e293b !important;
-          }
-          .leaflet-popup-content {
-            margin: 12px !important;
-          }
-          .leaflet-popup-close-button {
-            color: #64748b !important;
-            font-size: 20px !important;
-            padding: 4px 8px !important;
-          }
-          .dark .leaflet-popup-close-button {
-            color: #94a3b8 !important;
-          }
-          .leaflet-popup-close-button:hover {
-            color: #0f172a !important;
-          }
-          .dark .leaflet-popup-close-button:hover {
-            color: #f8fafc !important;
-          }
-        `
-        document.head.appendChild(style)
-      }
-    }
-  }, [])
-
-  // Initialize Leaflet icons
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      import('leaflet').then((L) => {
-        setLeafletLoaded(true)
-
-        // Store marker (gray)
-        const storeMarker = L.divIcon({
-          className: 'custom-store-icon',
-          html: `<div class="w-8 h-8 bg-slate-400 rounded-lg border-3 border-white shadow-md flex items-center justify-center">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                 </div>`,
-          iconSize: [32, 32],
-          iconAnchor: [16, 32],
-        })
-
-        // Visit marker - Verified (BLUE)
-        const visitMarkerVerified = L.divIcon({
-          className: 'custom-visit-verified-icon',
-          html: `<div class="w-10 h-10 bg-blue-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center animate-pulse">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                 </div>`,
-          iconSize: [40, 40],
-          iconAnchor: [20, 40],
-        })
-
-        // Visit marker - Unverified (ORANGE)
-        const visitMarkerUnverified = L.divIcon({
-          className: 'custom-visit-unverified-icon',
-          html: `<div class="w-10 h-10 bg-orange-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line><circle cx="12" cy="12" r="10"></circle></svg>
-                 </div>`,
-          iconSize: [40, 40],
-          iconAnchor: [20, 40],
-        })
-
-        setStoreIcon(storeMarker)
-        setVisitIconVerified(visitMarkerVerified)
-        setVisitIconUnverified(visitMarkerUnverified)
-      })
-    }
-  }, [])
+  const [openAgentCombobox, setOpenAgentCombobox] = useState(false)
 
   // Fetch sales agents
   useEffect(() => {
@@ -211,7 +101,11 @@ export default function SalesVisitsPage() {
 
       if (response.ok) {
         const data = await response.json()
-        setVisits(data.visits || [])
+        // Sort visits by timestamp to get chronological order
+        const sortedVisits = (data.visits || []).sort((a: SalesVisit, b: SalesVisit) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        )
+        setVisits(sortedVisits)
         setStats(data.stats || null)
       }
     } catch (error) {
@@ -223,10 +117,23 @@ export default function SalesVisitsPage() {
 
   const mapCenter: [number, number] = useMemo(() => {
     if (visits.length > 0 && visits[0].visit_lat && visits[0].visit_lng) {
-      return [visits[0].visit_lat, visits[0].visit_lng]
+      return [visits[0].visit_lng, visits[0].visit_lat]
     }
-    return [14.5995, 120.9842] // Default Manila
+    return [120.9842, 14.5995] // Default Manila [lng, lat]
   }, [visits])
+
+  // Create route coordinates from visits (chronological order)
+  const routeCoordinates: [number, number][] = useMemo(() => {
+    return visits
+      .filter(visit => visit.visit_lat && visit.visit_lng)
+      .map(visit => [visit.visit_lng!, visit.visit_lat!])
+  }, [visits])
+
+  // Filter visits by selected agent if needed
+  const filteredVisits = useMemo(() => {
+    if (!selectedAgent) return visits
+    return visits.filter(v => v.user_id === selectedAgent)
+  }, [visits, selectedAgent])
 
   return (
     <div className="h-[calc(100vh-140px)] flex flex-col gap-4">
@@ -257,25 +164,69 @@ export default function SalesVisitsPage() {
               </div>
             </div>
 
-            {/* Agent Selector */}
+            {/* Agent Selector with Search */}
             <div>
               <label className="block text-xs font-semibold text-muted-foreground mb-2">Filter by Agent</label>
-              <Select
-                value={selectedAgent?.toString() || 'all'}
-                onValueChange={(value) => setSelectedAgent(value === 'all' ? null : parseInt(value))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Sales Agents" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Sales Agents</SelectItem>
-                  {salesAgents.map(agent => (
-                    <SelectItem key={agent.id} value={agent.id.toString()}>
-                      {agent.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={openAgentCombobox} onOpenChange={setOpenAgentCombobox}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openAgentCombobox}
+                    className="w-full justify-between font-normal"
+                  >
+                    <span className="truncate">
+                      {selectedAgent
+                        ? salesAgents.find((agent) => agent.id === selectedAgent)?.name
+                        : "All Sales Agents"}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search agent..." />
+                    <CommandList>
+                      <CommandEmpty>No agent found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="all"
+                          onSelect={() => {
+                            setSelectedAgent(null)
+                            setOpenAgentCombobox(false)
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedAgent === null ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          All Sales Agents
+                        </CommandItem>
+                        {salesAgents.map((agent) => (
+                          <CommandItem
+                            key={agent.id}
+                            value={agent.name}
+                            onSelect={() => {
+                              setSelectedAgent(agent.id)
+                              setOpenAgentCombobox(false)
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedAgent === agent.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {agent.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Total Visits */}
@@ -297,115 +248,134 @@ export default function SalesVisitsPage() {
       {/* Map and Details */}
       <div className="flex-1 relative bg-card border border-border rounded-3xl shadow-lg overflow-hidden flex flex-col md:flex-row">
         {/* Map */}
-        <div className="flex-1 relative bg-muted">
-          {leafletLoaded && storeIcon && visitIconVerified && visitIconUnverified ? (
-            <MapContainer
-              center={mapCenter}
-              zoom={13}
-              scrollWheelZoom={true}
-              className="h-full w-full z-0 bg-muted"
-              style={{ background: 'var(--color-muted)' }}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                url={
-                  theme === 'dark'
-                    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-                }
+        <div className="flex-1 relative">
+          <MapCN
+            center={mapCenter}
+            zoom={13}
+            theme={theme as 'light' | 'dark'}
+            className="h-full w-full"
+          >
+            <MapControls showZoom showLocate showCompass />
+
+            {/* Route Line connecting visits in chronological order */}
+            {routeCoordinates.length > 1 && (
+              <MapRoute
+                coordinates={routeCoordinates}
+                color="#3b82f6"
+                width={3}
+                opacity={0.7}
+                dashArray={[5, 5]}
               />
+            )}
 
-              {/* Render Visit Markers (BLUE for verified, ORANGE for unverified) */}
-              {visits.map((visit) => {
-                if (!visit.visit_lat || !visit.visit_lng) return null
+            {/* Render Numbered Visit Markers */}
+            {filteredVisits.map((visit, index) => {
+              if (!visit.visit_lat || !visit.visit_lng) return null
 
-                const icon = visit.location_verified ? visitIconVerified : visitIconUnverified
-
-                return (
-                  <Marker
-                    key={visit.id}
-                    position={[visit.visit_lat, visit.visit_lng]}
-                    icon={icon}
-                    eventHandlers={{
-                      click: () => setSelectedVisit(visit)
-                    }}
-                  >
-                    <Popup>
-                      <div className="p-2 min-w-62.5">
+              return (
+                <MapMarker
+                  key={visit.id}
+                  longitude={visit.visit_lng}
+                  latitude={visit.visit_lat}
+                  onClick={() => setSelectedVisit(visit)}
+                >
+                  <MarkerContent>
+                    <div className={`w-10 h-10 rounded-full border-4 border-white shadow-lg flex items-center justify-center font-bold text-white ${
+                      visit.location_verified
+                        ? 'bg-blue-500'
+                        : 'bg-orange-500'
+                    }`}>
+                      {index + 1}
+                    </div>
+                  </MarkerContent>
+                  <MarkerPopup closeButton>
+                    <div className="p-2 min-w-[250px]">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-white text-xs ${
+                          visit.location_verified ? 'bg-blue-500' : 'bg-orange-500'
+                        }`}>
+                          {index + 1}
+                        </div>
                         <h3 className="font-bold text-sm text-blue-700 dark:text-blue-400">
                           {visit.location_verified ? '✓ Visit Verified' : '⚠ Location Unverified'}
                         </h3>
-                        <p className="text-xs text-foreground font-semibold mt-1">{visit.store?.name || 'Unknown Store'}</p>
-                        <p className="text-xs text-muted-foreground">{visit.store?.address || 'No address available'}</p>
-                        <div className="mt-2 space-y-1">
-                          <p className="text-xs text-foreground">
-                            <strong>Agent:</strong> {visit.user_name}
-                          </p>
-                          <p className="text-xs text-foreground">
-                            <strong>Time:</strong> {new Date(visit.timestamp).toLocaleString()}
-                          </p>
-                          {visit.distance_from_store !== null && (
-                            <p className="text-xs text-foreground">
-                              <strong>Distance:</strong> {Math.round(visit.distance_from_store)}m from store
-                            </p>
-                          )}
-                          {visit.notes && (
-                            <p className="text-xs text-foreground">
-                              <strong>Notes:</strong> {visit.notes}
-                            </p>
-                          )}
-                          {visit.photo_url && (
-                            <div className="mt-2">
-                              <img
-                                src={visit.photo_url}
-                                alt="Visit proof"
-                                className="w-full h-32 object-cover rounded border"
-                              />
-                            </div>
-                          )}
-                        </div>
                       </div>
-                    </Popup>
-                  </Marker>
-                )
-              })}
-
-              {/* Render Store Markers (Gray for reference) */}
-              {visits.map((visit) => {
-                if (!visit.store || !visit.store.lat || !visit.store.lng) return null
-
-                return (
-                  <Marker
-                    key={`store-${visit.store.id}`}
-                    position={[visit.store.lat, visit.store.lng]}
-                    icon={storeIcon}
-                  >
-                    <Popup>
-                      <div className="p-2">
-                        <h3 className="font-bold text-sm text-foreground">Store Location</h3>
-                        <p className="text-xs text-foreground">{visit.store.name}</p>
-                        <p className="text-xs text-muted-foreground">{visit.store.address}</p>
+                      <p className="text-xs text-foreground font-semibold">{visit.store?.name || 'Unknown Store'}</p>
+                      <p className="text-xs text-muted-foreground">{visit.store?.address || 'No address available'}</p>
+                      <div className="mt-2 space-y-1">
+                        <p className="text-xs text-foreground">
+                          <strong>Agent:</strong> {visit.user_name}
+                        </p>
+                        <p className="text-xs text-foreground">
+                          <strong>Time:</strong> {new Date(visit.timestamp).toLocaleString()}
+                        </p>
+                        {visit.distance_from_store !== null && (
+                          <p className="text-xs text-foreground">
+                            <strong>Distance:</strong> {Math.round(visit.distance_from_store)}m from store
+                          </p>
+                        )}
+                        {visit.outcome && (
+                          <p className="text-xs text-foreground">
+                            <strong>Outcome:</strong> {visit.outcome}
+                          </p>
+                        )}
+                        {visit.notes && (
+                          <p className="text-xs text-foreground">
+                            <strong>Notes:</strong> {visit.notes}
+                          </p>
+                        )}
+                        {visit.photo_url && (
+                          <div className="mt-2">
+                            <img
+                              src={visit.photo_url}
+                              alt="Visit proof"
+                              className="w-full h-32 object-cover rounded border"
+                            />
+                          </div>
+                        )}
                       </div>
-                    </Popup>
-                  </Marker>
-                )
-              })}
-            </MapContainer>
-          ) : (
-            <div className="h-full w-full flex items-center justify-center">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Loading map...</p>
-              </div>
-            </div>
-          )}
+                    </div>
+                  </MarkerPopup>
+                </MapMarker>
+              )
+            })}
+
+            {/* Render Store Markers (Gray for reference) */}
+            {filteredVisits.map((visit) => {
+              if (!visit.store || !visit.store.lat || !visit.store.lng) return null
+
+              return (
+                <MapMarker
+                  key={`store-${visit.store.id}`}
+                  longitude={visit.store.lng}
+                  latitude={visit.store.lat}
+                >
+                  <MarkerContent>
+                    <div className="w-6 h-6 bg-slate-400 rounded-lg border-2 border-white shadow-md flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                      </svg>
+                    </div>
+                  </MarkerContent>
+                  <MarkerPopup>
+                    <div className="p-2">
+                      <h3 className="font-bold text-sm text-foreground">Store Location</h3>
+                      <p className="text-xs text-foreground">{visit.store.name}</p>
+                      <p className="text-xs text-muted-foreground">{visit.store.address}</p>
+                    </div>
+                  </MarkerPopup>
+                </MapMarker>
+              )
+            })}
+          </MapCN>
         </div>
 
         {/* Sidebar - Visit List */}
         <div className="w-full md:w-80 border-l border-border bg-card flex flex-col overflow-hidden">
           <div className="p-4 border-b border-border">
-            <h3 className="text-sm font-bold text-foreground">Today&apos;s Visits</h3>
-            <p className="text-xs text-muted-foreground">{visits.length} total visits</p>
+            <h3 className="text-sm font-bold text-foreground">Visit Route</h3>
+            <p className="text-xs text-muted-foreground">{filteredVisits.length} visits in chronological order</p>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -414,8 +384,8 @@ export default function SalesVisitsPage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                 <p className="text-xs text-muted-foreground mt-2">Loading...</p>
               </div>
-            ) : visits.length > 0 ? (
-              visits.map((visit) => (
+            ) : filteredVisits.length > 0 ? (
+              filteredVisits.map((visit, index) => (
                 <button
                   key={visit.id}
                   onClick={() => setSelectedVisit(visit)}
@@ -426,11 +396,11 @@ export default function SalesVisitsPage() {
                   }`}
                 >
                   <div className="flex items-start gap-2">
-                    {visit.location_verified ? (
-                      <CheckCircle className="w-4 h-4 text-green-600 mt-0.5" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-orange-600 mt-0.5" />
-                    )}
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-white text-xs flex-shrink-0 ${
+                      visit.location_verified ? 'bg-blue-500' : 'bg-orange-500'
+                    }`}>
+                      {index + 1}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-foreground truncate">{visit.store?.name || 'Unknown Store'}</p>
                       <p className="text-[10px] text-muted-foreground">{visit.user_name}</p>
@@ -459,8 +429,20 @@ export default function SalesVisitsPage() {
           <div className="p-4 bg-muted/50 border-t border-border">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs">
-                <div className="w-3 h-3 bg-slate-400 dark:bg-slate-600 rounded"></div>
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <span className="text-muted-foreground">Verified Visit</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                <span className="text-muted-foreground">Unverified Visit</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <div className="w-3 h-3 bg-slate-400 rounded"></div>
                 <span className="text-muted-foreground">Store Location</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <div className="w-8 h-0.5 border-t-2 border-dashed border-blue-500"></div>
+                <span className="text-muted-foreground">Visit Route</span>
               </div>
             </div>
           </div>

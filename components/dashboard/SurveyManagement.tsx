@@ -713,7 +713,7 @@ const SurveyManagement: React.FC = () => {
 
       {/* Survey Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="p-2 bg-primary rounded-lg">
@@ -727,7 +727,7 @@ const SurveyManagement: React.FC = () => {
           </DialogHeader>
 
           {selectedSurvey && (
-            <div className="space-y-6 py-4">
+            <div className="space-y-6 py-4 overflow-y-auto">
               {/* Store Information */}
               <div className="space-y-3">
                 <h3 className="font-semibold flex items-center gap-2">

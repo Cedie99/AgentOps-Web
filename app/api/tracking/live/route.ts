@@ -28,8 +28,22 @@ export async function GET(request: NextRequest) {
     // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0]
 
-    // Get all shifts for today (both active and completed)
-    const todayShifts = await prisma.attendance.findMany({
+    // Helper function to format Philippine time timestamps
+    const formatPhilippineTime = (timestamp: Date) => {
+      // Database stores timestamps WITHOUT timezone, but they represent Philippine local time
+      // Use UTC methods to extract the raw values which represent Philippine time
+      const year = timestamp.getUTCFullYear()
+      const month = String(timestamp.getUTCMonth() + 1).padStart(2, '0')
+      const day = String(timestamp.getUTCDate()).padStart(2, '0')
+      const hours = String(timestamp.getUTCHours()).padStart(2, '0')
+      const minutes = String(timestamp.getUTCMinutes()).padStart(2, '0')
+      const seconds = String(timestamp.getUTCSeconds()).padStart(2, '0')
+      const ms = String(timestamp.getUTCMilliseconds()).padStart(3, '0')
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}+08:00`
+    }
+
+    // Get all shifts for today (both active and completed) from attendance_sessions table
+    const todayShifts = await prisma.attendanceSession.findMany({
       where: {
         work_date: today,
       },
@@ -58,10 +72,15 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Format response with latest GPS coordinates
+    // Format response with latest GPS coordinates and timezone-aware timestamps
     const allAgents = todayShifts.map(shift => {
       const latestGps = shift.gps_points[0]
       const isActive = !shift.clock_out_time
+
+      // Serialize timestamps with Philippine timezone
+      const clockInTime = formatPhilippineTime(shift.clock_in_time)
+      const clockOutTime = shift.clock_out_time ? formatPhilippineTime(shift.clock_out_time) : null
+      const lastUpdate = latestGps?.timestamp ? latestGps.timestamp.toISOString() : clockInTime
 
       return {
         id: shift.user.id,
@@ -72,19 +91,19 @@ export async function GET(request: NextRequest) {
         agent_status: shift.user.agent_status,
         attendance_id: shift.id,
         work_date: shift.work_date,
-        clock_in_time: shift.clock_in_time,
+        clock_in_time: clockInTime,
         clock_in_lat: shift.clock_in_lat,
         clock_in_long: shift.clock_in_long,
-        clock_out_time: shift.clock_out_time,
+        clock_out_time: clockOutTime,
         clock_out_lat: shift.clock_out_lat,
         clock_out_long: shift.clock_out_long,
         current_lat: latestGps?.latitude || shift.clock_in_lat,
         current_lng: latestGps?.longitude || shift.clock_in_long,
-        last_update: latestGps?.timestamp || shift.clock_in_time,
+        last_update: lastUpdate,
         total_distance: shift.total_distance,
         working_duration: isActive
-          ? calculateDuration(shift.clock_in_time)
-          : calculateCompletedDuration(shift.clock_in_time, shift.clock_out_time!),
+          ? calculateDuration(clockInTime)
+          : calculateCompletedDuration(clockInTime, clockOutTime!),
         is_active: isActive,
       }
     })
@@ -117,10 +136,18 @@ export async function GET(request: NextRequest) {
 }
 
 // Helper function to calculate duration (ongoing)
-function calculateDuration(startTime: Date): string {
+function calculateDuration(startTime: string): string {
   const now = new Date()
   const start = new Date(startTime)
   const diffMs = now.getTime() - start.getTime()
+
+  if (diffMs < 0) {
+    // If negative, show as negative
+    const absDiffMs = Math.abs(diffMs)
+    const hours = Math.floor(absDiffMs / (1000 * 60 * 60))
+    const minutes = Math.floor((absDiffMs % (1000 * 60 * 60)) / (1000 * 60))
+    return `-${hours}h ${minutes}m`
+  }
 
   const hours = Math.floor(diffMs / (1000 * 60 * 60))
   const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
@@ -129,10 +156,18 @@ function calculateDuration(startTime: Date): string {
 }
 
 // Helper function to calculate completed duration
-function calculateCompletedDuration(startTime: Date, endTime: Date): string {
+function calculateCompletedDuration(startTime: string, endTime: string): string {
   const start = new Date(startTime)
   const end = new Date(endTime)
   const diffMs = end.getTime() - start.getTime()
+
+  if (diffMs < 0) {
+    // If negative, show as negative
+    const absDiffMs = Math.abs(diffMs)
+    const hours = Math.floor(absDiffMs / (1000 * 60 * 60))
+    const minutes = Math.floor((absDiffMs % (1000 * 60 * 60)) / (1000 * 60))
+    return `-${hours}h ${minutes}m`
+  }
 
   const hours = Math.floor(diffMs / (1000 * 60 * 60))
   const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))

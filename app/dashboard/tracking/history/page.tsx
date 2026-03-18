@@ -1,9 +1,34 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import dynamic from 'next/dynamic'
 import { useTheme } from 'next-themes'
 import { Calendar, User, Download, Search, MapPin, Clock, TrendingUp, Map, ArrowLeft, Eye } from 'lucide-react'
+
+// Helper function to parse database timestamp
+// The API returns ISO strings with timezone info (e.g., "2026-03-18T21:25:33.383+08:00")
+// The browser's Date constructor will correctly parse these
+function parseLocalTime(timestamp: string | Date): Date {
+  // If already a Date object, return it
+  if (timestamp instanceof Date) {
+    return timestamp
+  }
+
+  // Handle null/undefined
+  if (!timestamp) {
+    return new Date()
+  }
+
+  // Parse ISO string with timezone info
+  const date = new Date(timestamp)
+
+  // Check if date is valid
+  if (isNaN(date.getTime())) {
+    console.error('Invalid date:', timestamp)
+    return new Date()
+  }
+
+  return date
+}
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -22,78 +47,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { CalendarIcon } from 'lucide-react'
-
-// Custom CSS for dark mode popup
-if (typeof document !== 'undefined') {
-  const style = document.createElement('style')
-  style.textContent = `
-    /* Light mode popup */
-    .leaflet-popup-content-wrapper {
-      background: #f1f5f9 !important;
-      color: #0f172a !important;
-      border-radius: 0.5rem !important;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-    }
-    .leaflet-popup-tip {
-      background: #f1f5f9 !important;
-    }
-
-    /* Dark mode popup */
-    .dark .leaflet-popup-content-wrapper {
-      background: #1e293b !important;
-      color: #f8fafc !important;
-      border-radius: 0.5rem !important;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
-    }
-    .dark .leaflet-popup-tip {
-      background: #1e293b !important;
-    }
-
-    /* Remove default padding */
-    .leaflet-popup-content {
-      margin: 12px !important;
-    }
-
-    /* Close button */
-    .leaflet-popup-close-button {
-      color: #64748b !important;
-      font-size: 20px !important;
-      padding: 4px 8px !important;
-    }
-    .dark .leaflet-popup-close-button {
-      color: #94a3b8 !important;
-    }
-    .leaflet-popup-close-button:hover {
-      color: #0f172a !important;
-    }
-    .dark .leaflet-popup-close-button:hover {
-      color: #f8fafc !important;
-    }
-  `
-  if (!document.getElementById('leaflet-popup-dark-mode')) {
-    style.id = 'leaflet-popup-dark-mode'
-    document.head.appendChild(style)
-  }
-}
-
-// Dynamically import Leaflet components
-const MapContainer = dynamic(
-  () => import('react-leaflet').then((mod) => mod.MapContainer),
-  { ssr: false }
-)
-const TileLayer = dynamic(
-  () => import('react-leaflet').then((mod) => mod.TileLayer),
-  { ssr: false }
-)
-// Removed Polyline - not needed for this map
-const Marker = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Marker),
-  { ssr: false }
-)
-const Popup = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Popup),
-  { ssr: false }
-)
+import { Map as MapCN, MapMarker, MarkerContent, MarkerPopup, MapControls } from '@/components/ui/map'
 
 interface Agent {
   id: number
@@ -141,63 +95,12 @@ export default function TrackingHistoryPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [selectedAgent, setSelectedAgent] = useState<number | null>(null)
   const [selectedRole, setSelectedRole] = useState<string>('ALL')
-  const [viewMode, setViewMode] = useState<'table' | 'map'>('table') // New state for view mode
+  const [viewMode, setViewMode] = useState<'table' | 'map'>('table')
   const [agents, setAgents] = useState<Agent[]>([])
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([])
   const [gpsRoute, setGpsRoute] = useState<GPSPoint[]>([])
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(false)
-  const [leafletLoaded, setLeafletLoaded] = useState(false)
-  const [startIcon, setStartIcon] = useState<any>(null)
-  const [endIcon, setEndIcon] = useState<any>(null)
-  const [activityIcons, setActivityIcons] = useState<any[]>([])
-  const [locationAddresses, setLocationAddresses] = useState<Record<string, string>>({})
-
-  // Initialize Leaflet icons
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      import('leaflet').then((L) => {
-        setLeafletLoaded(true)
-
-        const startMarker = L.divIcon({
-          className: 'custom-start-icon',
-          html: `<div class="w-10 h-10 bg-green-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                 </div>`,
-          iconSize: [40, 40],
-          iconAnchor: [20, 40],
-        })
-
-        const endMarker = L.divIcon({
-          className: 'custom-end-icon',
-          html: `<div class="w-10 h-10 bg-red-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path></svg>
-                 </div>`,
-          iconSize: [40, 40],
-          iconAnchor: [20, 40],
-        })
-
-        setStartIcon(startMarker)
-        setEndIcon(endMarker)
-
-        // Create numbered activity markers (will be populated based on activities count)
-        const maxActivities = 50 // Create up to 50 numbered icons
-        const icons = []
-        for (let i = 1; i <= maxActivities; i++) {
-          const activityIcon = L.divIcon({
-            className: `custom-activity-icon-${i}`,
-            html: `<div class="w-10 h-10 bg-emerald-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
-                     <span class="text-white font-bold text-sm">${i}</span>
-                   </div>`,
-            iconSize: [40, 40],
-            iconAnchor: [20, 40],
-          })
-          icons.push(activityIcon)
-        }
-        setActivityIcons(icons)
-      })
-    }
-  }, [])
 
   // Fetch agents on mount
   useEffect(() => {
@@ -273,9 +176,7 @@ export default function TrackingHistoryPage() {
     if (!selectedAgent || !selectedDate) return
 
     try {
-      // Convert Date to YYYY-MM-DD format
       const dateStr = format(selectedDate, 'yyyy-MM-dd')
-
       console.log('📡 Fetching activities for agent:', selectedAgent, 'date:', dateStr)
       const response = await fetch(
         `/api/tracking/activities?user_id=${selectedAgent}&date=${dateStr}`
@@ -293,40 +194,6 @@ export default function TrackingHistoryPage() {
     }
   }
 
-  // Reverse geocode: convert lat/lng to address
-  const getAddressFromCoords = async (lat: number, lng: number): Promise<string> => {
-    const cacheKey = `${lat},${lng}`
-    if (locationAddresses[cacheKey]) {
-      return locationAddresses[cacheKey]
-    }
-
-    try {
-      // Using OpenStreetMap Nominatim for reverse geocoding (free, no API key needed)
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-        {
-          headers: {
-            'User-Agent': 'AgentOpsApp/1.0'
-          }
-        }
-      )
-
-      if (response.ok) {
-        const data = await response.json()
-        const address = data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-
-        // Cache the address
-        setLocationAddresses(prev => ({...prev, [cacheKey]: address}))
-
-        return address
-      }
-    } catch (error) {
-      console.error('Error geocoding:', error)
-    }
-
-    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-  }
-
   const selectedAttendance = attendanceRecords.find(r => r.user_id === selectedAgent)
   const selectedAgentData = agents.find(a => a.id === selectedAgent)
 
@@ -337,16 +204,16 @@ export default function TrackingHistoryPage() {
 
   const mapCenter: [number, number] = useMemo(() => {
     if (gpsRoute.length > 0) {
-      return [gpsRoute[0].latitude, gpsRoute[0].longitude]
+      return [gpsRoute[0].longitude, gpsRoute[0].latitude]
     }
-    return [14.5995, 120.9842] // Default Manila
+    return [120.9842, 14.5995] // Default Manila [lng, lat]
   }, [gpsRoute])
 
   const getDuration = () => {
     if (!selectedAttendance) return '0h 0m'
-    const start = new Date(selectedAttendance.clock_in_time)
+    const start = parseLocalTime(selectedAttendance.clock_in_time)
     const end = selectedAttendance.clock_out_time
-      ? new Date(selectedAttendance.clock_out_time)
+      ? parseLocalTime(selectedAttendance.clock_out_time)
       : new Date()
     const diff = end.getTime() - start.getTime()
     const hours = Math.floor(diff / (1000 * 60 * 60))
@@ -357,7 +224,6 @@ export default function TrackingHistoryPage() {
   const handleViewMap = async (agentId: number) => {
     setSelectedAgent(agentId)
     setViewMode('map')
-    // Data will be fetched by the useEffect when selectedAgent changes
   }
 
   const handleBackToTable = () => {
@@ -513,15 +379,15 @@ export default function TrackingHistoryPage() {
                 ) : (
                   agentsWithAttendance.map((item: any) => {
                     const attendance = item.attendance
-                    const start = new Date(attendance.clock_in_time)
-                    const end = attendance.clock_out_time ? new Date(attendance.clock_out_time) : new Date()
+                    const start = parseLocalTime(attendance.clock_in_time)
+                    const end = attendance.clock_out_time ? parseLocalTime(attendance.clock_out_time) : new Date()
                     const diff = end.getTime() - start.getTime()
                     const hours = Math.floor(diff / (1000 * 60 * 60))
                     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
                     const duration = `${hours}h ${minutes}m`
 
                     return (
-                      <TableRow key={item.id}>
+                      <TableRow key={attendance.id}>
                         <TableCell className="font-medium">{item.name}</TableCell>
                         <TableCell>
                           <Badge variant="outline">{item.role}</Badge>
@@ -531,7 +397,7 @@ export default function TrackingHistoryPage() {
                         </TableCell>
                         <TableCell className="text-sm">
                           {attendance.clock_out_time
-                            ? new Date(attendance.clock_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            ? parseLocalTime(attendance.clock_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                             : '-'}
                         </TableCell>
                         <TableCell className="text-sm">{duration}</TableCell>
@@ -570,27 +436,6 @@ export default function TrackingHistoryPage() {
   }
 
   // MAP VIEW
-  // Location Address Component
-  function LocationAddress({ lat, lng, getAddress }: { lat: number | null, lng: number | null, getAddress: (lat: number, lng: number) => Promise<string> }) {
-    const [address, setAddress] = useState<string>('Loading...')
-
-    useEffect(() => {
-      if (lat && lng) {
-        getAddress(lat, lng).then(setAddress)
-      } else {
-        setAddress('-')
-      }
-    }, [lat, lng])
-
-    if (!lat || !lng) return <span className="text-muted-foreground">-</span>
-
-    return (
-      <div className="text-muted-foreground leading-relaxed break-words">
-        {address}
-      </div>
-    )
-  }
-
   return (
     <div className="h-[calc(100vh-140px)] flex flex-col gap-4">
       {/* Header */}
@@ -618,7 +463,7 @@ export default function TrackingHistoryPage() {
               <div>
                 <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase">Clock In</p>
                 <p className="text-lg font-bold text-emerald-900 dark:text-emerald-100">
-                  {new Date(selectedAttendance.clock_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {parseLocalTime(selectedAttendance.clock_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
               <Clock className="h-8 w-8 text-emerald-500" />
@@ -631,7 +476,7 @@ export default function TrackingHistoryPage() {
                 <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase">Clock Out</p>
                 <p className="text-lg font-bold text-red-900 dark:text-red-100">
                   {selectedAttendance.clock_out_time
-                    ? new Date(selectedAttendance.clock_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    ? parseLocalTime(selectedAttendance.clock_out_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                     : 'Active'}
                 </p>
               </div>
@@ -654,140 +499,138 @@ export default function TrackingHistoryPage() {
       {/* Map and Details */}
       <div className="flex-1 relative bg-card border border-border rounded-3xl shadow-lg overflow-hidden flex flex-col md:flex-row">
         {/* Map */}
-        <div className="flex-1 relative bg-muted">
-          {leafletLoaded && startIcon && endIcon ? (
-            <MapContainer
-              center={mapCenter}
-              zoom={13}
-              scrollWheelZoom={true}
-              className="h-full w-full z-0 bg-muted"
-              style={{ background: 'var(--color-muted)' }}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                url={
-                  theme === 'dark'
-                    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-                }
-              />
+        <div className="flex-1 relative">
+          <MapCN
+            center={mapCenter}
+            zoom={13}
+            theme={theme as 'light' | 'dark'}
+            className="h-full w-full"
+          >
+            <MapControls showZoom showLocate showCompass />
 
-              {/* Start Marker - or Single Point if user didn't move */}
-              {gpsRoute.length > 0 && (
-                <Marker position={[gpsRoute[0].latitude, gpsRoute[0].longitude]} icon={startIcon}>
-                  <Popup>
-                    <div className="p-2">
-                      <h3 className="font-bold text-sm">
-                        {gpsRoute.length === 1 ? 'Location (No Movement Detected)' : 'Start Point'}
-                      </h3>
-                      <p className="text-xs text-slate-600">
-                        {new Date(gpsRoute[0].timestamp).toLocaleTimeString()}
+            {/* Start Marker */}
+            {gpsRoute.length > 0 && (
+              <MapMarker
+                longitude={gpsRoute[0].longitude}
+                latitude={gpsRoute[0].latitude}
+              >
+                <MarkerContent>
+                  <div className="w-10 h-10 bg-green-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-white" />
+                  </div>
+                </MarkerContent>
+                <MarkerPopup>
+                  <div className="p-2">
+                    <h3 className="font-bold text-sm mb-1">
+                      {gpsRoute.length === 1 ? 'Location (No Movement)' : 'Start Point'}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(gpsRoute[0].timestamp).toLocaleTimeString()}
+                    </p>
+                    {gpsRoute.length === 1 && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        User stayed at this location during shift
                       </p>
-                      {gpsRoute.length === 1 && (
-                        <p className="text-xs text-amber-600 mt-1">
-                          User stayed at this location during their shift
-                        </p>
-                      )}
-                    </div>
-                  </Popup>
-                </Marker>
-              )}
+                    )}
+                  </div>
+                </MarkerPopup>
+              </MapMarker>
+            )}
 
-              {/* End Marker - only show if user has actually clocked out */}
-              {selectedAttendance?.clock_out_time && gpsRoute.length > 1 && (
-                <Marker
-                  position={[gpsRoute[gpsRoute.length - 1].latitude, gpsRoute[gpsRoute.length - 1].longitude]}
-                  icon={endIcon}
+            {/* End Marker */}
+            {selectedAttendance?.clock_out_time && gpsRoute.length > 1 && (
+              <MapMarker
+                longitude={gpsRoute[gpsRoute.length - 1].longitude}
+                latitude={gpsRoute[gpsRoute.length - 1].latitude}
+              >
+                <MarkerContent>
+                  <div className="w-10 h-10 bg-red-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
+                    <span className="text-white text-xl">✓</span>
+                  </div>
+                </MarkerContent>
+                <MarkerPopup>
+                  <div className="p-2">
+                    <h3 className="font-bold text-sm mb-1">End Point (Clock Out)</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {parseLocalTime(selectedAttendance.clock_out_time).toLocaleTimeString()}
+                    </p>
+                  </div>
+                </MarkerPopup>
+              </MapMarker>
+            )}
+
+            {/* Activity Markers */}
+            {activities.map((activity, index) => {
+              if (!activity.latitude || !activity.longitude) return null
+
+              return (
+                <MapMarker
+                  key={activity.id}
+                  longitude={activity.longitude}
+                  latitude={activity.latitude}
                 >
-                  <Popup>
-                    <div className="p-2">
-                      <h3 className="font-bold text-sm">End Point (Clock Out)</h3>
-                      <p className="text-xs text-slate-600">
-                        {new Date(selectedAttendance.clock_out_time).toLocaleTimeString()}
-                      </p>
+                  <MarkerContent>
+                    <div className="w-10 h-10 bg-emerald-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">{index + 1}</span>
                     </div>
-                  </Popup>
-                </Marker>
-              )}
+                  </MarkerContent>
+                  <MarkerPopup closeButton>
+                    <div className="min-w-[220px]">
+                      {/* Badge */}
+                      <div className="mb-2">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold ${
+                          activity.type === 'survey'
+                            ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300'
+                        }`}>
+                          {activity.type === 'survey' ? '📋 Survey' : '📍 Visit'}
+                        </span>
+                      </div>
 
-              {/* Activity Markers (Surveys & Visits) - Numbered 1, 2, 3... */}
-              {activities.map((activity, index) => {
-                if (!activity.latitude || !activity.longitude) return null
+                      {/* Photo */}
+                      {activity.photo_url && (
+                        <div className="mb-3 rounded-md overflow-hidden">
+                          <img
+                            src={activity.photo_url}
+                            alt={activity.title}
+                            className="w-full h-32 object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                            }}
+                          />
+                        </div>
+                      )}
 
-                const icon = activityIcons[index]
-                if (!icon) return null
+                      {/* Store Name */}
+                      <h3 className="font-semibold text-sm text-foreground mb-1">
+                        {activity.title}
+                      </h3>
 
-                return (
-                  <Marker
-                    key={activity.id}
-                    position={[activity.latitude, activity.longitude]}
-                    icon={icon}
-                  >
-                    <Popup maxWidth={240}>
-                      <div className="min-w-[220px]">
-                        {/* Badge */}
+                      {/* Address */}
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {activity.description}
+                      </p>
+
+                      {/* Status */}
+                      {activity.status && (
                         <div className="mb-2">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold ${
-                            activity.type === 'survey'
-                              ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300'
-                              : 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300'
-                          }`}>
-                            {activity.type === 'survey' ? '📋 Survey' : '📍 Visit'}
+                          <span className="text-xs text-muted-foreground">
+                            <span className="font-semibold">Status:</span> {activity.status}
                           </span>
                         </div>
+                      )}
 
-                        {/* Photo */}
-                        {activity.photo_url && (
-                          <div className="mb-3 rounded-md overflow-hidden">
-                            <img
-                              src={activity.photo_url}
-                              alt={activity.title}
-                              className="w-full h-32 object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none'
-                              }}
-                            />
-                          </div>
-                        )}
-
-                        {/* Store Name */}
-                        <h3 className="font-semibold text-sm text-foreground mb-1">
-                          {activity.title}
-                        </h3>
-
-                        {/* Address */}
-                        <p className="text-xs text-muted-foreground mb-2">
-                          {activity.description}
-                        </p>
-
-                        {/* Status */}
-                        {activity.status && (
-                          <div className="mb-2">
-                            <span className="text-xs text-muted-foreground">
-                              <span className="font-semibold">Status:</span> {activity.status}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Timestamp */}
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground/60">
-                          <Clock className="w-3 h-3" />
-                          {new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </div>
+                      {/* Timestamp */}
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground/60">
+                        <Clock className="w-3 h-3" />
+                        {new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
-                    </Popup>
-                  </Marker>
-                )
-              })}
-            </MapContainer>
-          ) : (
-            <div className="h-full w-full flex items-center justify-center">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Loading map...</p>
-              </div>
-            </div>
-          )}
+                    </div>
+                  </MarkerPopup>
+                </MapMarker>
+              )
+            })}
+          </MapCN>
         </div>
 
         {/* Sidebar */}
@@ -807,7 +650,7 @@ export default function TrackingHistoryPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Clock In</span>
                     <span className="font-semibold text-sm text-foreground">
-                      {new Date(selectedAttendance.clock_in_time).toLocaleTimeString()}
+                      {parseLocalTime(selectedAttendance.clock_in_time).toLocaleTimeString()}
                     </span>
                   </div>
 
@@ -815,7 +658,7 @@ export default function TrackingHistoryPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Clock Out</span>
                       <span className="font-semibold text-sm text-foreground">
-                        {new Date(selectedAttendance.clock_out_time).toLocaleTimeString()}
+                        {parseLocalTime(selectedAttendance.clock_out_time).toLocaleTimeString()}
                       </span>
                     </div>
                   )}

@@ -13,6 +13,7 @@ const eslintConfig = defineConfig([
       "react-hooks/exhaustive-deps": "off",
       "react-hooks/purity": "off",
       "react-hooks/incompatible-library": "off",
+      "react-hooks/refs": "off",
       "@next/next/no-img-element": "off",
       "prefer-const": "off",
       "react/no-unescaped-entities": "error", // Keep this as error

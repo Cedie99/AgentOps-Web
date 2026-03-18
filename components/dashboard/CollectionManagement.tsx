@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table,
   TableBody,
@@ -35,6 +36,9 @@ import {
   Calendar,
   TrendingUp,
   CheckCircle2,
+  Wallet,
+  MapPin,
+  Camera,
 } from 'lucide-react'
 
 interface Order {
@@ -65,10 +69,31 @@ interface Order {
   }
 }
 
+interface DailyCollection {
+  id: number
+  collector_id: string
+  store_name: string
+  amount_collected: number
+  payment_method: string
+  receipt_photo_url: string | null
+  collection_notes: string | null
+  gps_latitude: number | null
+  gps_longitude: number | null
+  collected_at: string
+  created_at: string
+  collector?: {
+    id: number
+    name: string
+    email: string
+  }
+}
+
 export default function CollectionManagement() {
   const { toast } = useToast()
   const [orders, setOrders] = useState<Order[]>([])
+  const [dailyCollections, setDailyCollections] = useState<DailyCollection[]>([])
   const [loading, setLoading] = useState(true)
+  const [collectionsLoading, setCollectionsLoading] = useState(true)
   const [showAssignDialog, setShowAssignDialog] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [collectorUsers, setCollectorUsers] = useState<any[]>([])
@@ -78,6 +103,7 @@ export default function CollectionManagement() {
   useEffect(() => {
     fetchOrders()
     fetchCollectors()
+    fetchDailyCollections()
   }, [])
 
   const fetchOrders = async () => {
@@ -118,6 +144,33 @@ export default function CollectionManagement() {
       }
     } catch (error) {
       console.error('Failed to fetch collectors:', error)
+    }
+  }
+
+  const fetchDailyCollections = async () => {
+    try {
+      setCollectionsLoading(true)
+      const response = await fetch('/api/collections/daily')
+      const data = await response.json()
+
+      if (response.ok) {
+        setDailyCollections(data.collections || [])
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: data.error || 'Failed to fetch daily collections',
+        })
+      }
+    } catch (error) {
+      console.error('Failed to fetch daily collections:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to fetch daily collections',
+      })
+    } finally {
+      setCollectionsLoading(false)
     }
   }
 
@@ -178,6 +231,23 @@ export default function CollectionManagement() {
     unassigned: orders.filter(o => !o.collector_assigned_to).length,
   }
 
+  const collectionStats = {
+    totalCollections: dailyCollections.length,
+    totalCashCollected: dailyCollections.reduce((sum, c) => sum + Number(c.amount_collected), 0),
+    todayCollections: dailyCollections.filter(c => {
+      const collectedDate = new Date(c.collected_at).toDateString()
+      const today = new Date().toDateString()
+      return collectedDate === today
+    }).length,
+    todayCash: dailyCollections
+      .filter(c => {
+        const collectedDate = new Date(c.collected_at).toDateString()
+        const today = new Date().toDateString()
+        return collectedDate === today
+      })
+      .reduce((sum, c) => sum + Number(c.amount_collected), 0),
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -235,6 +305,20 @@ export default function CollectionManagement() {
 
   return (
     <div className="space-y-6">
+      <Tabs defaultValue="assignments" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="assignments" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Order Assignments
+          </TabsTrigger>
+          <TabsTrigger value="daily-cash" className="flex items-center gap-2">
+            <Wallet className="h-4 w-4" />
+            Daily Cash Collections
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ORDER ASSIGNMENTS TAB */}
+        <TabsContent value="assignments" className="space-y-6">
       {/* Statistics Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
@@ -419,6 +503,185 @@ export default function CollectionManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+
+        {/* DAILY CASH COLLECTIONS TAB */}
+        <TabsContent value="daily-cash" className="space-y-6">
+          {/* Daily Collection Stats */}
+          <div className="grid gap-4 md:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Collections</CardTitle>
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{collectionStats.totalCollections}</div>
+                <p className="text-xs text-muted-foreground">All time</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Cash Collected</CardTitle>
+                <DollarSign className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {formatCurrency(collectionStats.totalCashCollected)}
+                </div>
+                <p className="text-xs text-muted-foreground">All time</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Today&apos;s Collections</CardTitle>
+                <Calendar className="h-4 w-4 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{collectionStats.todayCollections}</div>
+                <p className="text-xs text-muted-foreground">Collection entries</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Today&apos;s Cash</CardTitle>
+                <TrendingUp className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {formatCurrency(collectionStats.todayCash)}
+                </div>
+                <p className="text-xs text-muted-foreground">Collected today</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Daily Collections Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Daily Cash Collections</CardTitle>
+              <CardDescription>
+                View all cash collections recorded by collectors from the mobile app
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Collector</TableHead>
+                      <TableHead>Store Name</TableHead>
+                      <TableHead>Cash Collected</TableHead>
+                      <TableHead>Receipt</TableHead>
+                      <TableHead>GPS</TableHead>
+                      <TableHead>Notes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {collectionsLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-12">
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                            <span className="text-muted-foreground">Loading collections...</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : dailyCollections.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                          <Wallet className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                          <p className="text-lg font-medium">No collections recorded yet</p>
+                          <p className="text-sm">Daily cash collections will appear here</p>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      dailyCollections.map((collection) => (
+                        <TableRow key={collection.id}>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-medium">
+                                {new Date(collection.collected_at).toLocaleDateString('en-PH', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                })}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(collection.collected_at).toLocaleTimeString('en-PH', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4 text-muted-foreground" />
+                              <span>{collection.collector?.name || 'Unknown'}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium">{collection.store_name}</TableCell>
+                          <TableCell>
+                            <span className="text-green-600 font-bold text-lg">
+                              {formatCurrency(collection.amount_collected)}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {collection.receipt_photo_url ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex items-center gap-1"
+                                onClick={() => window.open(collection.receipt_photo_url!, '_blank')}
+                              >
+                                <Camera className="h-3 w-3" />
+                                View
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">No photo</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {collection.gps_latitude && collection.gps_longitude ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="flex items-center gap-1 text-xs"
+                                onClick={() => {
+                                  window.open(
+                                    `https://www.google.com/maps?q=${collection.gps_latitude},${collection.gps_longitude}`,
+                                    '_blank'
+                                  )
+                                }}
+                              >
+                                <MapPin className="h-3 w-3" />
+                                View
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {collection.collection_notes ? (
+                              <span className="text-sm">{collection.collection_notes}</span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

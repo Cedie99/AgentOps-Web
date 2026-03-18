@@ -1,13 +1,11 @@
 'use client'
 
 import React, { useMemo, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import { useTheme } from 'next-themes';
 import {
   MapPin,
   Navigation,
   User,
-  Layers,
   Info,
   Search,
   CheckCircle2,
@@ -15,31 +13,10 @@ import {
   ChevronRight,
   Activity
 } from 'lucide-react';
-import { MOCK_STORES, MOCK_AGENTS } from '@/lib/constants';
-import { MobileRole, StoreStatus, Store, Agent } from '@/lib/types';
-import { useUIStore, useAgentsStore, useStoresStore } from '@/store';
-
-// Dynamically import Leaflet components to avoid SSR issues
-const MapContainer = dynamic(
-  () => import('react-leaflet').then((mod) => mod.MapContainer),
-  { ssr: false }
-);
-const TileLayer = dynamic(
-  () => import('react-leaflet').then((mod) => mod.TileLayer),
-  { ssr: false }
-);
-const Marker = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Marker),
-  { ssr: false }
-);
-const Popup = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Popup),
-  { ssr: false }
-);
-const Polyline = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Polyline),
-  { ssr: false }
-);
+import { MOCK_STORES } from '@/lib/constants';
+import { MobileRole } from '@/lib/types';
+import { useUIStore } from '@/store';
+import { Map as MapCN, MapMarker, MarkerContent, MarkerPopup, MapControls, MapLine } from '@/components/ui/map';
 
 interface GpsPoint {
   id: number
@@ -76,13 +53,7 @@ const LiveMap: React.FC = () => {
   const { mapView, setMapView, selectedMapAgent, setSelectedMapAgent } = useUIStore();
   const { theme } = useTheme();
 
-  // Local state for Leaflet (can't be serialized in Zustand)
-  const [leafletLoaded, setLeafletLoaded] = React.useState(false);
-  const [agentIcon, setAgentIcon] = React.useState<any>(null);
-  const [storeIcon, setStoreIcon] = React.useState<any>(null);
-  const [highlightedStoreIcon, setHighlightedStoreIcon] = React.useState<any>(null);
-  const [clockInIcon, setClockInIcon] = React.useState<any>(null);
-  const [clockOutIcon, setClockOutIcon] = React.useState<any>(null);
+  // Local state
   const [gpsRoutes, setGpsRoutes] = React.useState<Record<number, GpsPoint[]>>({});
   const [showRoutes, setShowRoutes] = React.useState(true);
   const [selectedRole, setSelectedRole] = React.useState<MobileRole | 'ALL'>('ALL');
@@ -90,6 +61,7 @@ const LiveMap: React.FC = () => {
   const [liveAgents, setLiveAgents] = React.useState<LiveAgent[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [showStatus, setShowStatus] = React.useState<'all' | 'active' | 'clocked_out'>('active');
+  const mapRef = React.useRef<any>(null);
 
   // Get selected agent from store
   const selectedAgent = useMemo(() => {
@@ -180,90 +152,34 @@ const LiveMap: React.FC = () => {
     }
   };
 
-  // Initialize Leaflet icons
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      import('leaflet').then((L) => {
-        setLeafletLoaded(true);
-
-        // Create custom icons with pulsing animation
-        const agentMarker = L.divIcon({
-          className: 'custom-agent-icon',
-          html: `
-            <div class="relative">
-              <div class="absolute inset-0 w-10 h-10 bg-emerald-500 rounded-full animate-ping opacity-75"></div>
-              <div class="relative w-10 h-10 bg-emerald-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-              </div>
-            </div>`,
-          iconSize: [40, 40],
-          iconAnchor: [20, 40],
-        });
-
-        const storeMarker = L.divIcon({
-          className: 'custom-store-icon',
-          html: `<div class="w-8 h-8 bg-white rounded-lg border-2 border-slate-300 shadow-md flex items-center justify-center">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                 </div>`,
-          iconSize: [32, 32],
-          iconAnchor: [16, 32],
-        });
-
-        const highlightedMarker = L.divIcon({
-          className: 'custom-highlighted-icon',
-          html: `<div class="w-10 h-10 bg-emerald-600 rounded-lg border-4 border-white shadow-xl flex items-center justify-center animate-pulse">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                 </div>`,
-          iconSize: [40, 40],
-          iconAnchor: [20, 40],
-        });
-
-        // Clock In marker (Green)
-        const clockInMarker = L.divIcon({
-          className: 'custom-clock-in-icon',
-          html: `<div class="w-8 h-8 bg-green-500 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
-                     <circle cx="12" cy="12" r="10"/>
-                     <polyline points="12 6 12 12 16 14" stroke="green" fill="none"/>
-                   </svg>
-                 </div>`,
-          iconSize: [32, 32],
-          iconAnchor: [16, 32],
-        });
-
-        // Clock Out marker (Red)
-        const clockOutMarker = L.divIcon({
-          className: 'custom-clock-out-icon',
-          html: `<div class="w-8 h-8 bg-red-500 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
-                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2">
-                     <circle cx="12" cy="12" r="10"/>
-                     <polyline points="12 6 12 12 16 14" stroke="red" fill="none"/>
-                   </svg>
-                 </div>`,
-          iconSize: [32, 32],
-          iconAnchor: [16, 32],
-        });
-
-        setAgentIcon(agentMarker);
-        setStoreIcon(storeMarker);
-        setHighlightedStoreIcon(highlightedMarker);
-        setClockInIcon(clockInMarker);
-        setClockOutIcon(clockOutMarker);
-      });
-    }
-  }, []);
-
   const handleSelectAgent = (agent: LiveAgent) => {
     if (selectedAgent?.id === agent.id) {
       setSelectedMapAgent(null);
     } else {
       setSelectedMapAgent(agent.id);
       setMapView('agents');
+
+      // Fly to agent's location
+      if (mapRef.current && agent.current_lat && agent.current_lng) {
+        mapRef.current.flyTo({
+          center: [agent.current_lng, agent.current_lat],
+          zoom: 14,
+          duration: 1500
+        });
+      }
     }
   };
 
-  // Default center (Manila, Philippines - you can change this)
-  const defaultCenter: [number, number] = [14.5995, 120.9842];
+  // Default center (Manila, Philippines)
+  const defaultCenter: [number, number] = [120.9842, 14.5995];
+
+  // Map center based on selected agent or default
+  const mapCenter: [number, number] = useMemo(() => {
+    if (selectedAgent?.current_lng && selectedAgent?.current_lat) {
+      return [selectedAgent.current_lng, selectedAgent.current_lat];
+    }
+    return defaultCenter;
+  }, [selectedAgent]);
 
   return (
     <div className="h-[calc(100vh-140px)] flex flex-col gap-4">
@@ -286,115 +202,123 @@ const LiveMap: React.FC = () => {
 
       <div className="flex-1 relative bg-card border border-border rounded-3xl shadow-lg overflow-hidden flex flex-col md:flex-row">
         {/* Map Display */}
-        <div className="flex-1 relative bg-muted overflow-hidden">
-          {leafletLoaded && agentIcon && storeIcon ? (
-            <MapContainer
-              center={defaultCenter}
-              zoom={13}
-              scrollWheelZoom={true}
-              className="h-full w-full z-0 bg-muted"
-              style={{ background: 'var(--color-muted)' }}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                url={
-                  theme === 'dark'
-                    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                    : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-                }
-              />
+        <div className="flex-1 relative overflow-hidden">
+          <MapCN
+            ref={mapRef}
+            center={mapCenter}
+            zoom={13}
+            theme={theme as 'light' | 'dark'}
+            className="h-full w-full"
+          >
+            <MapControls showZoom showLocate showCompass />
 
-              {/* Render Agent Markers - using filteredAgents instead of liveAgents */}
-              {filteredAgents.map((agent) => {
-                if (!agent.current_lat || !agent.current_lng) return null;
+            {/* Render Agent Markers */}
+            {filteredAgents.map((agent) => {
+              if (!agent.current_lat || !agent.current_lng) return null;
 
-                return (
-                  <Marker
-                    key={agent.id}
-                    position={[agent.current_lat, agent.current_lng]}
-                    icon={agentIcon}
-                  >
-                    <Popup>
-                      <div className="p-2">
-                        <h3 className="font-bold text-sm">{agent.name}</h3>
-                        <p className="text-xs text-slate-600">{agent.role}</p>
-                        <p className="text-xs text-slate-500 mt-1">Duration: {agent.working_duration}</p>
-                        <p className="text-xs text-slate-500">Last update: {new Date(agent.last_update).toLocaleTimeString()}</p>
-                        {agent.total_distance && (
-                          <p className="text-xs text-slate-500">Distance: {agent.total_distance.toFixed(2)} km</p>
-                        )}
+              return (
+                <MapMarker
+                  key={agent.id}
+                  longitude={agent.current_lng}
+                  latitude={agent.current_lat}
+                  onClick={() => handleSelectAgent(agent)}
+                >
+                  <MarkerContent>
+                    <div className="relative">
+                      <div className="absolute inset-0 w-10 h-10 bg-emerald-500 rounded-full animate-ping opacity-75"></div>
+                      <div className="relative w-10 h-10 bg-emerald-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
                       </div>
-                    </Popup>
-                  </Marker>
-                );
-              })}
+                    </div>
+                  </MarkerContent>
+                  <MarkerPopup closeButton>
+                    <div className="p-2 min-w-[200px]">
+                      <h3 className="font-bold text-sm">{agent.name}</h3>
+                      <p className="text-xs text-muted-foreground">{agent.role}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Duration: {agent.working_duration}</p>
+                      <p className="text-xs text-muted-foreground">Last update: {new Date(agent.last_update).toLocaleTimeString()}</p>
+                      {agent.total_distance && (
+                        <p className="text-xs text-muted-foreground">Distance: {agent.total_distance.toFixed(2)} km</p>
+                      )}
+                    </div>
+                  </MarkerPopup>
+                </MapMarker>
+              );
+            })}
 
-              {/* Render Clock In/Out Markers for Selected Agent */}
-              {selectedAgent && clockInIcon && clockOutIcon && (
-                <>
-                  {/* Clock In Marker */}
-                  {selectedAgent.clock_in_lat && selectedAgent.clock_in_long && (
-                    <Marker
-                      position={[selectedAgent.clock_in_lat, selectedAgent.clock_in_long]}
-                      icon={clockInIcon}
-                    >
-                      <Popup>
-                        <div className="p-2">
-                          <h3 className="font-bold text-sm text-green-700">Clock In</h3>
-                          <p className="text-xs text-slate-600">{selectedAgent.name}</p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            {new Date(selectedAgent.clock_in_time).toLocaleString()}
-                          </p>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  )}
+            {/* Render Clock In/Out Markers for Selected Agent */}
+            {selectedAgent && (
+              <>
+                {/* Clock In Marker */}
+                {selectedAgent.clock_in_lat && selectedAgent.clock_in_long && (
+                  <MapMarker
+                    longitude={selectedAgent.clock_in_long}
+                    latitude={selectedAgent.clock_in_lat}
+                  >
+                    <MarkerContent>
+                      <div className="w-8 h-8 bg-green-500 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"/>
+                          <polyline points="12 6 12 12 16 14" stroke="green" fill="none"/>
+                        </svg>
+                      </div>
+                    </MarkerContent>
+                    <MarkerPopup>
+                      <div className="p-2">
+                        <h3 className="font-bold text-sm text-green-700">Clock In</h3>
+                        <p className="text-xs text-muted-foreground">{selectedAgent.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(selectedAgent.clock_in_time).toLocaleString()}
+                        </p>
+                      </div>
+                    </MarkerPopup>
+                  </MapMarker>
+                )}
 
-                  {/* Clock Out Marker */}
-                  {selectedAgent.clock_out_lat && selectedAgent.clock_out_long && (
-                    <Marker
-                      position={[selectedAgent.clock_out_lat, selectedAgent.clock_out_long]}
-                      icon={clockOutIcon}
-                    >
-                      <Popup>
-                        <div className="p-2">
-                          <h3 className="font-bold text-sm text-red-700">Clock Out</h3>
-                          <p className="text-xs text-slate-600">{selectedAgent.name}</p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            {new Date(selectedAgent.clock_out_time!).toLocaleString()}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            Total: {selectedAgent.working_duration}
-                          </p>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  )}
-                </>
-              )}
+                {/* Clock Out Marker */}
+                {selectedAgent.clock_out_lat && selectedAgent.clock_out_long && (
+                  <MapMarker
+                    longitude={selectedAgent.clock_out_long}
+                    latitude={selectedAgent.clock_out_lat}
+                  >
+                    <MarkerContent>
+                      <div className="w-8 h-8 bg-red-500 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"/>
+                          <polyline points="12 6 12 12 16 14" stroke="red" fill="none"/>
+                        </svg>
+                      </div>
+                    </MarkerContent>
+                    <MarkerPopup>
+                      <div className="p-2">
+                        <h3 className="font-bold text-sm text-red-700">Clock Out</h3>
+                        <p className="text-xs text-muted-foreground">{selectedAgent.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(selectedAgent.clock_out_time!).toLocaleString()}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Total: {selectedAgent.working_duration}
+                        </p>
+                      </div>
+                    </MarkerPopup>
+                  </MapMarker>
+                )}
+              </>
+            )}
 
-              {/* Render GPS Routes */}
-              {showRoutes && selectedMapAgent && gpsRoutes[selectedMapAgent]?.length > 1 && (
-                <Polyline
-                  positions={gpsRoutes[selectedMapAgent].map(point => [point.latitude, point.longitude])}
-                  pathOptions={{
-                    color: '#10b981',
-                    weight: 6,
-                    opacity: 0.9,
-                    lineJoin: 'round',
-                    lineCap: 'round',
-                  }}
-                />
-              )}
-            </MapContainer>
-          ) : (
-            <div className="h-full w-full flex items-center justify-center bg-slate-100">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                <p className="text-slate-600">Loading map...</p>
-              </div>
-            </div>
-          )}
+            {/* Render GPS Routes */}
+            {showRoutes && selectedMapAgent && gpsRoutes[selectedMapAgent]?.length > 1 && (
+              <MapLine
+                coordinates={gpsRoutes[selectedMapAgent].map(point => [point.longitude, point.latitude])}
+                color="#10b981"
+                width={6}
+                opacity={0.9}
+              />
+            )}
+          </MapCN>
         </div>
 
         {/* Sidebar Panel */}
@@ -626,11 +550,12 @@ const LiveMap: React.FC = () => {
                     {selectedAgent.clock_in_lat && selectedAgent.clock_in_long && (
                       <button
                         onClick={() => {
-                          if (typeof window !== 'undefined' && (window as any).L) {
-                            const map = document.querySelector('.leaflet-container') as any;
-                            if (map && map._leaflet_map) {
-                              map._leaflet_map.flyTo([selectedAgent.clock_in_lat!, selectedAgent.clock_in_long!], 16);
-                            }
+                          if (mapRef.current) {
+                            mapRef.current.flyTo({
+                              center: [selectedAgent.clock_in_long!, selectedAgent.clock_in_lat!],
+                              zoom: 16,
+                              duration: 1500
+                            });
                           }
                         }}
                         className="w-full flex items-center justify-between px-3 py-2 bg-green-50 dark:bg-green-950 hover:bg-green-100 dark:hover:bg-green-900 border border-green-200 dark:border-green-800 rounded-lg transition-all"
@@ -645,11 +570,12 @@ const LiveMap: React.FC = () => {
                     {selectedAgent.clock_out_lat && selectedAgent.clock_out_long && (
                       <button
                         onClick={() => {
-                          if (typeof window !== 'undefined' && (window as any).L) {
-                            const map = document.querySelector('.leaflet-container') as any;
-                            if (map && map._leaflet_map) {
-                              map._leaflet_map.flyTo([selectedAgent.clock_out_lat!, selectedAgent.clock_out_long!], 16);
-                            }
+                          if (mapRef.current) {
+                            mapRef.current.flyTo({
+                              center: [selectedAgent.clock_out_long!, selectedAgent.clock_out_lat!],
+                              zoom: 16,
+                              duration: 1500
+                            });
                           }
                         }}
                         className="w-full flex items-center justify-between px-3 py-2 bg-red-50 dark:bg-red-950 hover:bg-red-100 dark:hover:bg-red-900 border border-red-200 dark:border-red-800 rounded-lg transition-all"

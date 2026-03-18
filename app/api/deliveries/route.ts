@@ -7,14 +7,14 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
 
     // Check authentication
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
+    const { data: { user: authUser }, error } = await supabase.auth.getUser()
+    if (error || !authUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Get user with ID and role
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email! },
+      where: { email: authUser.email! },
       select: { id: true, role: true }
     })
 

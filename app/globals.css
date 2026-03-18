@@ -119,8 +119,9 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html,
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-hidden;
   }
 
   /* Leaflet map dark mode support */
@@ -134,5 +135,11 @@
 
   .dark .leaflet-tile-pane {
     filter: brightness(0.7) contrast(1.1);
+  }
+  .maplibregl-popup-content {
+    @apply bg-transparent! shadow-none! p-0! rounded-none!;
+  }
+  .maplibregl-popup-tip {
+    @apply hidden!;
   }
 }

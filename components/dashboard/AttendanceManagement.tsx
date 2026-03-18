@@ -67,7 +67,7 @@ interface AttendanceRecord {
   clock_out_lat: number | null
   clock_out_long: number | null
   selfie_url: string | null
-  duration: string | null
+  duration_minutes: number | null
   total_distance: number | null
   user: {
     id: number
@@ -92,6 +92,9 @@ interface AttendanceStats {
   working: number
   completed: number
   totalDistance: number
+  totalSessions: number
+  uniqueUsers: number
+  totalHours: number
 }
 
 export default function AttendanceManagement() {
@@ -101,6 +104,9 @@ export default function AttendanceManagement() {
     working: 0,
     completed: 0,
     totalDistance: 0,
+    totalSessions: 0,
+    uniqueUsers: 0,
+    totalHours: 0,
   })
   const [loading, setLoading] = useState(true)
   const [sorting, setSorting] = useState<SortingState>([])
@@ -110,6 +116,11 @@ export default function AttendanceManagement() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [dateFilter, setDateFilter] = useState<string>(new Date().toISOString().split('T')[0])
   const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     fetchAttendance()
@@ -143,15 +154,48 @@ export default function AttendanceManagement() {
     setIsDetailDialogOpen(true)
   }
 
-  const calculateDuration = (clockIn: string, clockOut: string | null): string => {
-    const start = new Date(clockIn)
-    const end = clockOut ? new Date(clockOut) : new Date()
-    const diffMs = end.getTime() - start.getTime()
+  const calculateDuration = (clockIn: string, clockOut: string | null, durationMinutes?: number | null): string => {
+    // If session is completed and we have duration_minutes from database, use it (most reliable)
+    if (clockOut && durationMinutes !== null && durationMinutes !== undefined) {
+      const absDuration = Math.abs(durationMinutes)
+      const hours = Math.floor(absDuration / 60)
+      const minutes = Math.round(absDuration % 60)
+      return `${hours}h ${minutes}m`
+    }
 
-    const hours = Math.floor(diffMs / (1000 * 60 * 60))
-    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+    // For active sessions, only calculate on client side to avoid hydration mismatch
+    if (!mounted) {
+      return 'Calculating...'
+    }
 
-    return `${hours}h ${minutes}m`
+    // For active sessions without duration_minutes, calculate from timestamps
+    // Timestamps are now ISO strings with timezone info (e.g., "2026-03-18T21:25:33.383+08:00")
+    try {
+      const start = new Date(clockIn)
+      const end = clockOut ? new Date(clockOut) : new Date()
+
+      // Validate dates
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return 'Invalid'
+      }
+
+      const diffMs = end.getTime() - start.getTime()
+
+      // If difference is negative, show as negative duration
+      if (diffMs < 0) {
+        const absDiffMs = Math.abs(diffMs)
+        const hours = Math.floor(absDiffMs / (1000 * 60 * 60))
+        const minutes = Math.floor((absDiffMs % (1000 * 60 * 60)) / (1000 * 60))
+        return `-${hours}h ${minutes}m`
+      }
+
+      const hours = Math.floor(diffMs / (1000 * 60 * 60))
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+
+      return `${hours}h ${minutes}m`
+    } catch (error) {
+      return 'N/A'
+    }
   }
 
   const columns = useMemo<ColumnDef<AttendanceRecord>[]>(
@@ -222,7 +266,7 @@ export default function AttendanceManagement() {
         header: 'Duration',
         cell: ({ row }) => {
           const record = row.original
-          return calculateDuration(record.clock_in_time, record.clock_out_time)
+          return calculateDuration(record.clock_in_time, record.clock_out_time, record.duration_minutes)
         },
       },
       {
@@ -231,24 +275,6 @@ export default function AttendanceManagement() {
         cell: ({ getValue }) => {
           const distance = getValue() as number | null
           return distance ? `${distance.toFixed(2)} km` : 'N/A'
-        },
-      },
-      {
-        id: 'status',
-        header: 'Status',
-        cell: ({ row }) => {
-          const record = row.original
-          return record.clock_out_time ? (
-            <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-              <CheckCircle2 className="h-3 w-3 mr-1" />
-              Completed
-            </Badge>
-          ) : (
-            <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
-              <Clock className="h-3 w-3 mr-1" />
-              Working
-            </Badge>
-          )
         },
       },
       {
@@ -294,7 +320,7 @@ export default function AttendanceManagement() {
   return (
     <div className="space-y-6">
       {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Records</CardTitle>
@@ -330,11 +356,24 @@ export default function AttendanceManagement() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Distance</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
             <TrendingUp className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-600">
+              {stats.totalHours.toFixed(2)}
+            </div>
+            <p className="text-xs text-muted-foreground">Hours worked today</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Distance</CardTitle>
+            <Route className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">
               {stats.totalDistance.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground">Kilometers traveled</p>
@@ -555,11 +594,25 @@ export default function AttendanceManagement() {
               </div>
 
               {/* Summary */}
-              <div className="p-4 bg-muted rounded-lg">
-                <div>
-                  <div className="text-sm text-muted-foreground">Duration</div>
-                  <div className="text-lg font-semibold">
-                    {calculateDuration(selectedRecord.clock_in_time, selectedRecord.clock_out_time)}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-muted rounded-lg">
+                  <div>
+                    <div className="text-sm text-muted-foreground">Session Duration</div>
+                    <div className="text-lg font-semibold">
+                      {calculateDuration(selectedRecord.clock_in_time, selectedRecord.clock_out_time, selectedRecord.duration_minutes)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-muted rounded-lg">
+                  <div>
+                    <div className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Route className="h-4 w-4" />
+                      Distance Traveled
+                    </div>
+                    <div className="text-lg font-semibold">
+                      {selectedRecord.total_distance ? `${selectedRecord.total_distance.toFixed(2)} km` : 'N/A'}
+                    </div>
                   </div>
                 </div>
               </div>
