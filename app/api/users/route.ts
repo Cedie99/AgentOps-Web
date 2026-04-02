@@ -8,8 +8,12 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const role = searchParams.get('role');
 
-    // Build where clause
-    const where: any = {};
+    // Build where clause — exclude admin roles, only show default mobile roles
+    const where: any = {
+      role: {
+        notIn: ['SUPER_ADMIN', 'ADMIN'],
+      },
+    };
     if (role) {
       where.role = role;
     }

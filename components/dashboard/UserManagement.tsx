@@ -438,7 +438,7 @@ const UserManagement: React.FC = () => {
           <CardHeader>
             <div className="flex items-center gap-4">
               <div className="h-10 flex-1 max-w-md bg-muted animate-pulse rounded" />
-              <div className="h-10 w-[180px] bg-muted animate-pulse rounded" />
+              <div className="h-10 w-45 bg-muted animate-pulse rounded" />
             </div>
           </CardHeader>
           <CardContent>
@@ -526,7 +526,7 @@ const UserManagement: React.FC = () => {
               />
             </div>
             <Select value={filterBy} onValueChange={(value: any) => setFilterBy(value)}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-45">
                 <Filter className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="Filter by" />
               </SelectTrigger>
@@ -613,7 +613,7 @@ const UserManagement: React.FC = () => {
 
       {/* Create User Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-125">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="p-2 bg-primary rounded-lg">
@@ -724,7 +724,7 @@ const UserManagement: React.FC = () => {
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-125">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="p-2 bg-primary rounded-lg">
