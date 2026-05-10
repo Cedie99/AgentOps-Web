@@ -23,7 +23,7 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
@@ -38,6 +38,11 @@ export default function LoginPage() {
       })
 
       const userData = await userCheckResponse.json()
+
+      if (userCheckResponse.status === 404) {
+        await supabase.auth.signOut()
+        throw new Error('Account not found in the system. Please contact an administrator.')
+      }
 
       // Check if user status is ACTIVE
       if (!userCheckResponse.ok || userData.status !== 'ACTIVE') {

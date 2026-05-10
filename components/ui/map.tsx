@@ -16,7 +16,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { X, Minus, Plus, Locate, Maximize, Loader2 } from "lucide-react";
+import { X, Minus, Plus, Locate, Maximize, Loader2, MapPin } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -184,6 +184,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
   const [mapInstance, setMapInstance] = useState<MapLibreGL.Map | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
+  const [webglSupported, setWebglSupported] = useState(true);
   const currentStyleRef = useRef<MapStyleOption | null>(null);
   const styleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const internalUpdateRef = useRef(false);
@@ -215,6 +216,13 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
   // Initialize the map
   useEffect(() => {
     if (!containerRef.current) return;
+
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!gl) {
+      setWebglSupported(false);
+      return;
+    }
 
     const initialStyle =
       resolvedTheme === "dark" ? mapStyles.dark : mapStyles.light;
@@ -320,6 +328,25 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
     }),
     [mapInstance, isLoaded, isStyleLoaded]
   );
+
+  if (!webglSupported) {
+    return (
+      <div className={cn("relative w-full h-full flex items-center justify-center bg-muted rounded-lg border border-border", className)}>
+        <div className="text-center space-y-3 p-8 max-w-sm">
+          <div className="w-16 h-16 rounded-full bg-muted-foreground/10 flex items-center justify-center mx-auto">
+            <MapPin className="w-8 h-8 text-muted-foreground/40" />
+          </div>
+          <h3 className="font-semibold text-foreground">Map Unavailable</h3>
+          <p className="text-sm text-muted-foreground">
+            WebGL is required to render the map but is not supported or enabled in this environment.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Try enabling hardware acceleration in your browser settings, or open this page in a standard browser window.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <MapContext.Provider value={contextValue}>

@@ -25,6 +25,7 @@ import {
   flexRender,
   createColumnHelper,
 } from '@tanstack/react-table'
+import { createClient } from '@/lib/supabase/client'
 
 // shadcn components
 import { Button } from '@/components/ui/button'
@@ -130,10 +131,22 @@ const SurveyManagement: React.FC = () => {
   const [selectedSalesUser, setSelectedSalesUser] = useState('')
   const [isAssigning, setIsAssigning] = useState(false)
 
-  // Fetch surveys on component mount
+  // Fetch surveys on mount + subscribe to real-time changes
   useEffect(() => {
     fetchSurveys()
     fetchSalesUsers()
+
+    const supabase = createClient()
+    const channel = supabase
+      .channel('surveys-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'surveys' },
+        () => { fetchSurveys() }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [])
 
   const fetchSurveys = async () => {

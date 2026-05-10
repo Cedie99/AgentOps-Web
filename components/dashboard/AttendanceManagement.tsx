@@ -55,6 +55,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { format, parseISO } from 'date-fns'
+import { createClient } from '@/lib/supabase/client'
 
 interface AttendanceRecord {
   id: number
@@ -109,6 +110,7 @@ export default function AttendanceManagement() {
     totalHours: 0,
   })
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
@@ -124,10 +126,23 @@ export default function AttendanceManagement() {
 
   useEffect(() => {
     fetchAttendance()
+
+    const supabase = createClient()
+    const channel = supabase
+      .channel('attendance-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'attendance_sessions' },
+        () => { fetchAttendance() }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [dateFilter, roleFilter])
 
   const fetchAttendance = async () => {
     setLoading(true)
+    setError(null)
     try {
       const params = new URLSearchParams()
       if (dateFilter) params.append('work_date', dateFilter)
@@ -141,9 +156,9 @@ export default function AttendanceManagement() {
       const data = await response.json()
       setAttendance(data.attendance)
       setStats(data.stats)
-    } catch (error: any) {
-      console.error('Error fetching attendance:', error)
-      alert(`Error: ${error.message}`)
+    } catch (err: any) {
+      console.error('Error fetching attendance:', err)
+      setError(err.message || 'Failed to load attendance data')
     } finally {
       setLoading(false)
     }
@@ -319,6 +334,12 @@ export default function AttendanceManagement() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       {/* Statistics Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
