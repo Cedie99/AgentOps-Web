@@ -125,7 +125,9 @@ export async function PATCH(
         authUpdateSuccess = false
         authUpdateMessage = 'Failed to list auth users'
       } else if (authUsers) {
-        const authUser = authUsers.users.find(u => u.email === existingUser.email)
+        const authUser = authUsers.users.find(
+          u => u.email?.toLowerCase() === existingUser.email.toLowerCase()
+        )
 
         if (!authUser) {
           console.warn('Auth user not found for email:', existingUser.email)
@@ -151,7 +153,7 @@ export async function PATCH(
               password: password ? '[REDACTED]' : undefined
             })
 
-            const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+            const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
               authUser.id,
               updateAuthData
             )
@@ -202,7 +204,7 @@ export async function PATCH(
 
 // GET single user
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -239,7 +241,7 @@ export async function GET(
 
 // DELETE user
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -268,7 +270,9 @@ export async function DELETE(
       const { data: authUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers()
 
       if (!listError && authUsers) {
-        const authUser = authUsers.users.find(u => u.email === existingUser.email)
+        const authUser = authUsers.users.find(
+          u => u.email?.toLowerCase() === existingUser.email.toLowerCase()
+        )
 
         if (authUser) {
           await supabaseAdmin.auth.admin.deleteUser(authUser.id)
