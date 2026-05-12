@@ -130,9 +130,26 @@ export async function PATCH(
         )
 
         if (!authUser) {
-          console.warn('Auth user not found for email:', existingUser.email)
-          authUpdateSuccess = false
-          authUpdateMessage = 'Auth user not found'
+          if (password) {
+            // Auth record is missing — create it now so the user can log in
+            const { error: createError } = await supabaseAdmin.auth.admin.createUser({
+              email,
+              password,
+              email_confirm: true,
+              user_metadata: { name, role },
+            })
+            if (createError) {
+              console.error('Failed to create missing auth user:', createError)
+              authUpdateSuccess = false
+              authUpdateMessage = createError.message || 'Failed to create auth user'
+            } else {
+              authUpdateMessage = 'Auth account created and password set'
+            }
+          } else {
+            console.warn('Auth user not found for email:', existingUser.email)
+            authUpdateSuccess = false
+            authUpdateMessage = 'Auth user not found — provide a password to recreate the account'
+          }
         } else {
           const updateAuthData: any = {}
 
