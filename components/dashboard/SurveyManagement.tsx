@@ -142,15 +142,15 @@ const SurveyManagement: React.FC = () => {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'surveys' },
-        () => { fetchSurveys() }
+        () => { fetchSurveys(true) }
       )
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
   }, [])
 
-  const fetchSurveys = async () => {
-    setIsLoading(true)
+  const fetchSurveys = async (silent = false) => {
+    if (!silent) setIsLoading(true)
     try {
       const response = await fetch('/api/surveys')
       if (!response.ok) {
@@ -161,9 +161,9 @@ const SurveyManagement: React.FC = () => {
       setSurveys(data.surveys)
     } catch (err: any) {
       console.error('Error fetching surveys:', err)
-      setError(err.message || 'Failed to load surveys')
+      if (!silent) setError(err.message || 'Failed to load surveys')
     } finally {
-      setIsLoading(false)
+      if (!silent) setIsLoading(false)
     }
   }
 
@@ -224,8 +224,20 @@ const SurveyManagement: React.FC = () => {
       // Get the assigned user name for the toast message
       const assignedUser = salesUsers.find(u => u.id === parseInt(selectedSalesUser))
 
-      // Refresh surveys list
-      await fetchSurveys()
+      // Update local state directly — no full re-fetch needed
+      setSurveys(prev => prev.map(s =>
+        s.id === surveyToAssign.id
+          ? {
+              ...s,
+              assigned_to_id: parseInt(selectedSalesUser),
+              assigned_to_name: assignedUser?.name || null,
+              assigned_at: new Date().toISOString(),
+              assigned_to: assignedUser
+                ? { id: assignedUser.id, name: assignedUser.name, email: assignedUser.email, role: 'SALES' }
+                : null,
+            }
+          : s
+      ))
 
       // Show success toast
       toast({
