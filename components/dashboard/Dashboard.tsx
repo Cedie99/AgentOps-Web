@@ -1,5 +1,6 @@
-import { ClipboardCheck, ShoppingBag, Truck, Wallet, Users, ArrowUpRight } from 'lucide-react'
+import { ClipboardCheck, ShoppingBag, Truck, Wallet, Users } from 'lucide-react'
 import ActivityChart from './ActivityChart'
+import GenerateReportButton from './GenerateReportButton'
 
 interface DashboardStats {
   kpis: {
@@ -36,9 +37,7 @@ export default function Dashboard({ stats }: { stats: DashboardStats }) {
           <p className="text-muted-foreground">Real-time status of your field agents and store workflow.</p>
         </div>
         <div className="flex gap-3">
-          <button className="px-4 py-2 bg-emerald-600 dark:bg-emerald-700 text-white rounded-lg hover:bg-emerald-700 dark:hover:bg-emerald-800 transition-colors font-medium">
-            Generate Report
-          </button>
+          <GenerateReportButton />
         </div>
       </div>
 

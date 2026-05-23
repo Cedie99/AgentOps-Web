@@ -3,7 +3,6 @@
 import React, { useMemo, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import {
-  MapPin,
   Navigation,
   User,
   Info,
@@ -50,12 +49,12 @@ interface LiveAgent {
 
 const LiveMap: React.FC = () => {
   // Zustand stores
-  const { mapView, setMapView, selectedMapAgent, setSelectedMapAgent } = useUIStore();
+  const { setMapView, selectedMapAgent, setSelectedMapAgent } = useUIStore();
   const { theme } = useTheme();
 
   // Local state
   const [gpsRoutes, setGpsRoutes] = React.useState<Record<number, GpsPoint[]>>({});
-  const [showRoutes, setShowRoutes] = React.useState(true);
+  const [showRoutes] = React.useState(true);
   const [selectedRole, setSelectedRole] = React.useState<MobileRole | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [liveAgents, setLiveAgents] = React.useState<LiveAgent[]>([]);
@@ -80,9 +79,11 @@ const LiveMap: React.FC = () => {
       agents = agents.filter(agent => !agent.is_active);
     }
 
-    // Filter by role
+    // Filter by role (DB stores uppercase e.g. 'SURVEYOR', enum is title-case 'Surveyor')
     if (selectedRole !== 'ALL') {
-      agents = agents.filter(agent => agent.role === selectedRole);
+      agents = agents.filter(agent =>
+        agent.role.toUpperCase() === selectedRole.toUpperCase()
+      );
     }
 
     // Filter by search query

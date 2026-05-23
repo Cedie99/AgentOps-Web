@@ -6,15 +6,14 @@ export async function GET(request: NextRequest) {
   try {
     // Get query parameters
     const searchParams = request.nextUrl.searchParams;
-    const role = searchParams.get('role');
+    const role = searchParams.get('role');       // single role: ?role=SALES
+    const roles = searchParams.get('roles');     // comma-separated: ?roles=SALES,SURVEYOR
 
-    // Build where clause — exclude admin roles, only show default mobile roles
-    const where: any = {
-      role: {
-        notIn: ['SUPER_ADMIN', 'ADMIN'],
-      },
-    };
-    if (role) {
+    // Build where clause — no default exclusions; callers filter explicitly
+    const where: any = {};
+    if (roles) {
+      where.role = { in: roles.split(',').map(r => r.trim()) };
+    } else if (role) {
       where.role = role;
     }
 

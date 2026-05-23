@@ -8,20 +8,13 @@ import { useTheme } from 'next-themes'
 import {
   LayoutDashboard,
   Map as MapIcon,
-  Users,
-  Truck,
   Clock,
   Megaphone,
-  Settings,
   Menu,
   X,
   Bell,
-  Search,
   UserCog,
-  ShoppingBag,
-  PackageCheck,
   LogOut,
-  User,
   FileText,
   History,
   Package,
@@ -198,15 +191,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56 mb-2 ml-4">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <User className="mr-2 h-4 w-4" />
-                  Profile
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  Account Settings
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}

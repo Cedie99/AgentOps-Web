@@ -221,6 +221,75 @@ export default function TrackingHistoryPage() {
     return `${hours}h ${minutes}m`
   }
 
+  const handleExportReport = () => {
+    if (!selectedAgentData || !selectedAttendance) return
+
+    const dateStr = format(selectedDate, 'yyyy-MM-dd')
+    const agentName = selectedAgentData.name
+    const role = selectedAgentData.role
+    const clockIn = parseLocalTime(selectedAttendance.clock_in_time).toLocaleTimeString()
+    const clockOut = selectedAttendance.clock_out_time
+      ? parseLocalTime(selectedAttendance.clock_out_time).toLocaleTimeString()
+      : 'Not clocked out'
+    const duration = getDuration()
+    const distance = selectedAttendance.total_distance != null
+      ? `${selectedAttendance.total_distance.toFixed(2)} km`
+      : 'N/A'
+    const gpsPoints = gpsRoute.length
+
+    const rows: string[][] = []
+
+    // Summary header
+    rows.push(['FIELD AGENT DAILY REPORT'])
+    rows.push([])
+    rows.push(['Agent Name', agentName])
+    rows.push(['Role', role])
+    rows.push(['Date', dateStr])
+    rows.push(['Clock In', clockIn])
+    rows.push(['Clock Out', clockOut])
+    rows.push(['Total Hours', duration])
+    rows.push(['Total Distance', distance])
+    rows.push(['GPS Points Tracked', String(gpsPoints)])
+    rows.push([])
+
+    // Activities
+    rows.push(['ACTIVITY LOG'])
+    rows.push(['#', 'Type', 'Time', 'Title', 'Description', 'Status', 'City', 'Owner / Contact', 'Notes'])
+
+    activities.forEach((act, i) => {
+      const time = parseLocalTime(act.timestamp).toLocaleTimeString()
+      const ownerContact = [act.owner_name, act.contact_number].filter(Boolean).join(' | ')
+      rows.push([
+        String(i + 1),
+        act.type.toUpperCase(),
+        time,
+        act.title,
+        act.description,
+        act.status || '',
+        act.city || '',
+        ownerContact,
+        act.notes || '',
+      ])
+    })
+
+    if (activities.length === 0) {
+      rows.push(['', 'No activities recorded for this date.'])
+    }
+
+    // Build CSV string
+    const csv = rows.map(row =>
+      row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+    ).join('\n')
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `report_${agentName.replace(/\s+/g, '_')}_${dateStr}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   const handleViewMap = async (agentId: number) => {
     setSelectedAgent(agentId)
     setViewMode('map')
@@ -287,7 +356,6 @@ export default function TrackingHistoryPage() {
                     disabled={(date) =>
                       date > new Date() || date < new Date("1900-01-01")
                     }
-                    initialFocus
                   />
                 </PopoverContent>
               </Popover>
@@ -752,7 +820,7 @@ export default function TrackingHistoryPage() {
 
           {gpsRoute.length > 0 && (
             <div className="p-6 border-t border-border">
-              <Button className="w-full" variant="outline">
+              <Button className="w-full" variant="outline" onClick={handleExportReport}>
                 <Download className="h-4 w-4 mr-2" />
                 Export Report
               </Button>
