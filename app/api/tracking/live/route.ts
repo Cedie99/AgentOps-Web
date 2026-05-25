@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get today's date in YYYY-MM-DD format
-    const today = new Date().toISOString().split('T')[0]
+    // Get today's date in Philippine time (sessions are stored with PH timezone dates)
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
 
     // Helper function to format Philippine time timestamps
     const formatPhilippineTime = (timestamp: Date) => {
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Format response with latest GPS coordinates and timezone-aware timestamps
-    const allAgents = todayShifts.map(shift => {
+    const allShiftAgents = todayShifts.map(shift => {
       const latestGps = shift.gps_points[0]
       const isActive = !shift.clock_out_time
 
@@ -107,6 +107,17 @@ export async function GET(request: NextRequest) {
         is_active: isActive,
       }
     })
+
+    // Deduplicate by user ID — a user may have multiple sessions today (clock-in/out/in again).
+    // Keep the active session; if all are completed, keep the most recent one.
+    const seenUsers = new Map<number, typeof allShiftAgents[0]>();
+    for (const agent of allShiftAgents) {
+      const existing = seenUsers.get(agent.id);
+      if (!existing || agent.is_active || (!existing.is_active && agent.attendance_id > existing.attendance_id)) {
+        seenUsers.set(agent.id, agent);
+      }
+    }
+    const allAgents = Array.from(seenUsers.values());
 
     // Get statistics
     const liveAgents = allAgents.filter(a => a.is_active)
