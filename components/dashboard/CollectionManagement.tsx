@@ -608,12 +608,14 @@ export default function CollectionManagement() {
                                   month: 'short',
                                   day: 'numeric',
                                   year: 'numeric',
+                                  timeZone: 'Asia/Manila',
                                 })}
                               </span>
                               <span className="text-xs text-muted-foreground">
                                 {new Date(collection.collected_at).toLocaleTimeString('en-PH', {
                                   hour: '2-digit',
                                   minute: '2-digit',
+                                  timeZone: 'Asia/Manila',
                                 })}
                               </span>
                             </div>

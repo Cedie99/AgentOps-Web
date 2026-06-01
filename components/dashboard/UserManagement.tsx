@@ -346,7 +346,8 @@ const UserManagement: React.FC = () => {
           {new Date(info.getValue()).toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
-            year: 'numeric'
+            year: 'numeric',
+            timeZone: 'Asia/Manila',
           })}
         </div>
       ),

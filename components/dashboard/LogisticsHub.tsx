@@ -576,11 +576,13 @@ const LogisticsHub: React.FC = () => {
                               ? completedDate.toLocaleDateString('en-US', {
                                   month: 'short',
                                   day: 'numeric',
+                                  timeZone: 'Asia/Manila',
                                 })
                               : timeIn
                               ? timeIn.toLocaleDateString('en-US', {
                                   month: 'short',
                                   day: 'numeric',
+                                  timeZone: 'Asia/Manila',
                                 })
                               : 'N/A'}
                           </p>

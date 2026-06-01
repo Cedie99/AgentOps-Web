@@ -368,6 +368,7 @@ const SurveyManagement: React.FC = () => {
               month: 'short',
               day: 'numeric',
               year: 'numeric',
+              timeZone: 'Asia/Manila',
             })}
           </div>
         </div>
@@ -883,6 +884,7 @@ const SurveyManagement: React.FC = () => {
                             year: 'numeric',
                             hour: '2-digit',
                             minute: '2-digit',
+                            timeZone: 'Asia/Manila',
                           })}
                         </p>
                       </div>
@@ -924,6 +926,7 @@ const SurveyManagement: React.FC = () => {
                         year: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit',
+                        timeZone: 'Asia/Manila',
                       })}
                     </p>
                   </div>

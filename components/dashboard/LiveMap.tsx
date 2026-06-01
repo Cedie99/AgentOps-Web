@@ -272,7 +272,7 @@ const LiveMap: React.FC = () => {
                         <h3 className="font-bold text-sm text-green-700">Clock In</h3>
                         <p className="text-xs text-muted-foreground">{selectedAgent.name}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(selectedAgent.clock_in_time).toLocaleString()}
+                          {new Date(selectedAgent.clock_in_time).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Manila' })}
                         </p>
                       </div>
                     </MarkerPopup>
@@ -298,7 +298,7 @@ const LiveMap: React.FC = () => {
                         <h3 className="font-bold text-sm text-red-700">Clock Out</h3>
                         <p className="text-xs text-muted-foreground">{selectedAgent.name}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(selectedAgent.clock_out_time!).toLocaleString()}
+                          {new Date(selectedAgent.clock_out_time!).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Manila' })}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Total: {selectedAgent.working_duration}
