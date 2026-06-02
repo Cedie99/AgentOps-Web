@@ -47,6 +47,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
+import { formatPHDate } from '@/lib/utils'
 
 interface Order {
   id: number
@@ -573,17 +574,9 @@ const LogisticsHub: React.FC = () => {
                           </p>
                           <p className="text-sm font-bold">
                             {completedDate
-                              ? completedDate.toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  timeZone: 'Asia/Manila',
-                                })
+                              ? formatPHDate(completedDate)
                               : timeIn
-                              ? timeIn.toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  timeZone: 'Asia/Manila',
-                                })
+                              ? formatPHDate(timeIn)
                               : 'N/A'}
                           </p>
                         </div>

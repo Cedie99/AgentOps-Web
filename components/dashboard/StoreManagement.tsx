@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MOCK_STORES, MOCK_AGENTS } from '@/lib/constants';
+import { formatPHDate } from '@/lib/utils';
 import { Store, StoreStatus, VisitLog, CustomerType } from '@/lib/types';
 import { UserRole, User } from '@prisma/client';
 import { useStoresStore, useAgentsStore, useUIStore } from '@/store';
@@ -514,7 +515,7 @@ const StoreManagement: React.FC = () => {
                         <p className="text-sm font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">{agent.name}</p>
                         <div className="flex items-center gap-3 text-[10px] text-slate-500 font-medium mt-1">
                           <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> Seen {agent.last_seen ? new Date(agent.last_seen).toLocaleDateString('en-US', { timeZone: 'Asia/Manila' }) : 'N/A'}
+                            <Clock className="w-3 h-3" /> Seen {agent.last_seen ? formatPHDate(agent.last_seen) : 'N/A'}
                           </span>
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3 h-3" /> Area: North

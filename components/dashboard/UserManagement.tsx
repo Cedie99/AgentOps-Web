@@ -64,6 +64,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
+import { formatPHDate } from '@/lib/utils'
 
 // All user roles (unified)
 type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'SURVEYOR' | 'SALES' | 'DELIVERY' | 'COLLECTOR'
@@ -343,12 +344,7 @@ const UserManagement: React.FC = () => {
       header: 'Created',
       cell: (info) => (
         <div className="text-sm">
-          {new Date(info.getValue()).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            timeZone: 'Asia/Manila',
-          })}
+          {formatPHDate(info.getValue())}
         </div>
       ),
     }),

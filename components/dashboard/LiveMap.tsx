@@ -16,6 +16,7 @@ import { MOCK_STORES } from '@/lib/constants';
 import { MobileRole } from '@/lib/types';
 import { useUIStore } from '@/store';
 import { Map as MapCN, MapMarker, MarkerContent, MarkerPopup, MapControls, MapLine } from '@/components/ui/map';
+import { formatPHDateTime } from '@/lib/utils';
 
 interface GpsPoint {
   id: number
@@ -272,7 +273,7 @@ const LiveMap: React.FC = () => {
                         <h3 className="font-bold text-sm text-green-700">Clock In</h3>
                         <p className="text-xs text-muted-foreground">{selectedAgent.name}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(selectedAgent.clock_in_time).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Manila' })}
+                          {formatPHDateTime(selectedAgent.clock_in_time)}
                         </p>
                       </div>
                     </MarkerPopup>
@@ -298,7 +299,7 @@ const LiveMap: React.FC = () => {
                         <h3 className="font-bold text-sm text-red-700">Clock Out</h3>
                         <p className="text-xs text-muted-foreground">{selectedAgent.name}</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(selectedAgent.clock_out_time!).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Manila' })}
+                          {formatPHDateTime(selectedAgent.clock_out_time)}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Total: {selectedAgent.working_duration}
@@ -522,12 +523,12 @@ const LiveMap: React.FC = () => {
                 <div className="mt-4 pt-4 border-t border-emerald-100 dark:border-emerald-800 space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-[9px] font-bold text-green-600 dark:text-green-400 uppercase">Clock In</p>
-                    <span className="text-xs text-green-700 dark:text-green-300">{new Date(selectedAgent.clock_in_time).toLocaleTimeString()}</span>
+                    <span className="text-xs text-green-700 dark:text-green-300">{formatPHDateTime(selectedAgent.clock_in_time)}</span>
                   </div>
                   {selectedAgent.clock_out_time && (
                     <div className="flex items-center justify-between">
                       <p className="text-[9px] font-bold text-red-600 dark:text-red-400 uppercase">Clock Out</p>
-                      <span className="text-xs text-red-700 dark:text-red-300">{new Date(selectedAgent.clock_out_time).toLocaleTimeString()}</span>
+                      <span className="text-xs text-red-700 dark:text-red-300">{formatPHDateTime(selectedAgent.clock_out_time)}</span>
                     </div>
                   )}
                   {selectedAgent.total_distance && (

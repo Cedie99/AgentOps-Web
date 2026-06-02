@@ -67,6 +67,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { formatPHDate, formatPHDateTime } from '@/lib/utils'
 
 interface Survey {
   id: number
@@ -364,12 +365,7 @@ const SurveyManagement: React.FC = () => {
         <div className="flex items-center gap-2 text-sm">
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <div>
-            {new Date(info.getValue()).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-              timeZone: 'Asia/Manila',
-            })}
+            {formatPHDate(info.getValue())}
           </div>
         </div>
       ),
@@ -878,14 +874,7 @@ const SurveyManagement: React.FC = () => {
                       <div>
                         <p className="text-sm text-muted-foreground">Assigned Date</p>
                         <p className="font-medium">
-                          {selectedSurvey.assigned_at && new Date(selectedSurvey.assigned_at).toLocaleString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            timeZone: 'Asia/Manila',
-                          })}
+                          {selectedSurvey.assigned_at && formatPHDateTime(selectedSurvey.assigned_at)}
                         </p>
                       </div>
                     </div>
@@ -920,14 +909,7 @@ const SurveyManagement: React.FC = () => {
                   <div>
                     <p className="text-sm text-muted-foreground">Captured Date</p>
                     <p className="font-medium">
-                      {new Date(selectedSurvey.captured_at).toLocaleString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        timeZone: 'Asia/Manila',
-                      })}
+                      {formatPHDateTime(selectedSurvey.captured_at)}
                     </p>
                   </div>
                 </div>

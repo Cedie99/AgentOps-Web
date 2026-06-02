@@ -30,65 +30,85 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0]
     const salesAgentId = searchParams.get('sales_agent_id')
 
-    // Build where clause
-    const where: any = {
-      user_role: 'SALES',
-      timestamp: {
-        gte: new Date(`${date}T00:00:00Z`),
-        lte: new Date(`${date}T23:59:59Z`),
-      }
-    }
+    // Query via Supabase to get all columns including check_out_time, check_out_photo_url
+    let query = supabase
+      .from('visit_logs')
+      .select(`
+        id,
+        store_id,
+        user_id,
+        user_name,
+        user_role,
+        timestamp,
+        outcome,
+        location_verified,
+        visit_lat,
+        visit_lng,
+        distance_from_store,
+        photo_url,
+        notes,
+        check_out_time,
+        check_out_photo_url,
+        check_out_lat,
+        check_out_lng,
+        check_out_notes,
+        store:surveys!store_id (
+          id,
+          store_name,
+          address,
+          city,
+          gps_latitude,
+          gps_longitude,
+          customer_status
+        ),
+        user:users!user_id (
+          id,
+          name,
+          email
+        )
+      `)
+      .eq('user_role', 'SALES')
+      .gte('timestamp', `${date}T00:00:00Z`)
+      .lte('timestamp', `${date}T23:59:59Z`)
+      .order('timestamp', { ascending: true })
 
     if (salesAgentId) {
-      where.user_id = parseInt(salesAgentId)
+      query = query.eq('user_id', parseInt(salesAgentId))
     }
 
-    // Get all sales visits for the date
-    const visits = await prisma.visitLog.findMany({
-      where,
-      include: {
-        store: {
-          select: {
-            id: true,
-            name: true,
-            address: true,
-            lat: true,
-            lng: true,
-            status: true,
-            customer_type: true,
-          }
-        },
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
-          }
-        }
-      },
-      orderBy: {
-        timestamp: 'desc'
-      }
-    })
+    const { data: rows, error } = await query
 
-    // Get statistics
+    if (error) throw new Error(error.message)
+
+    // Normalise store shape to match what the page expects
+    const visits = (rows || []).map((v: any) => ({
+      ...v,
+      store: v.store
+        ? {
+            id: v.store.id,
+            name: v.store.store_name,
+            address: v.store.address,
+            lat: v.store.gps_latitude,
+            lng: v.store.gps_longitude,
+            status: v.store.customer_status,
+            customer_type: v.store.customer_status,
+          }
+        : null,
+    }))
+
+    // Statistics
     const stats = {
       total_visits: visits.length,
-      verified_visits: visits.filter(v => v.location_verified).length,
-      unverified_visits: visits.filter(v => !v.location_verified).length,
-      unique_agents: new Set(visits.map(v => v.user_id)).size,
-      unique_stores: new Set(visits.map(v => v.store_id)).size,
+      verified_visits: visits.filter((v: any) => v.location_verified).length,
+      unverified_visits: visits.filter((v: any) => !v.location_verified).length,
+      unique_agents: new Set(visits.map((v: any) => v.user_id)).size,
+      unique_stores: new Set(visits.map((v: any) => v.store_id)).size,
       average_distance: visits.length > 0
-        ? visits.reduce((sum, v) => sum + (v.distance_from_store || 0), 0) / visits.length
+        ? visits.reduce((sum: number, v: any) => sum + (v.distance_from_store || 0), 0) / visits.length
         : 0,
     }
 
-    return NextResponse.json({
-      visits,
-      stats,
-      date,
-    })
+    return NextResponse.json({ visits, stats, date })
   } catch (error: any) {
     console.error('Error fetching sales visits:', error)
     return NextResponse.json(

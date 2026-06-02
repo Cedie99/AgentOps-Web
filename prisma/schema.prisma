@@ -203,6 +203,11 @@ model VisitLog {
   distance_from_store Float?  @map("distance_from_store") // Distance in meters from store location
   photo_url          String?  @map("photo_url")
   notes              String?
+  check_out_time     DateTime? @map("check_out_time")
+  check_out_photo_url String?  @map("check_out_photo_url")
+  check_out_lat      Float?   @map("check_out_lat")
+  check_out_lng      Float?   @map("check_out_lng")
+  check_out_notes    String?  @map("check_out_notes")
   created_at         DateTime @default(now()) @map("created_at")
 
   // Relations

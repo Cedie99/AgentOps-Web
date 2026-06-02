@@ -32,6 +32,11 @@ interface SalesVisit {
   distance_from_store: number | null
   photo_url: string | null
   notes: string | null
+  check_out_time: string | null
+  check_out_photo_url: string | null
+  check_out_lat: number | null
+  check_out_lng: number | null
+  check_out_notes: string | null
   store: {
     id: number
     name: string
@@ -289,7 +294,7 @@ export default function SalesVisitsPage() {
                     </div>
                   </MarkerContent>
                   <MarkerPopup closeButton>
-                    <div className="p-2 min-w-[250px]">
+                    <div className="p-2 min-w-[250px] space-y-1">
                       <div className="flex items-center gap-2 mb-2">
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-white text-xs ${
                           visit.location_verified ? 'bg-blue-500' : 'bg-orange-500'
@@ -303,36 +308,34 @@ export default function SalesVisitsPage() {
                       <p className="text-xs text-foreground font-semibold">{visit.store?.name || 'Unknown Store'}</p>
                       <p className="text-xs text-muted-foreground">{visit.store?.address || 'No address available'}</p>
                       <div className="mt-2 space-y-1">
-                        <p className="text-xs text-foreground">
-                          <strong>Agent:</strong> {visit.user_name}
-                        </p>
-                        <p className="text-xs text-foreground">
-                          <strong>Time:</strong> {new Date(visit.timestamp).toLocaleString()}
-                        </p>
+                        <p className="text-xs text-foreground"><strong>Agent:</strong> {visit.user_name}</p>
                         {visit.distance_from_store !== null && (
-                          <p className="text-xs text-foreground">
-                            <strong>Distance:</strong> {Math.round(visit.distance_from_store)}m from store
-                          </p>
+                          <p className="text-xs text-foreground"><strong>Distance:</strong> {Math.round(visit.distance_from_store)}m from store</p>
                         )}
-                        {visit.outcome && (
-                          <p className="text-xs text-foreground">
-                            <strong>Outcome:</strong> {visit.outcome}
-                          </p>
-                        )}
-                        {visit.notes && (
-                          <p className="text-xs text-foreground">
-                            <strong>Notes:</strong> {visit.notes}
-                          </p>
-                        )}
-                        {visit.photo_url && (
-                          <div className="mt-2">
-                            <img
-                              src={visit.photo_url}
-                              alt="Visit proof"
-                              className="w-full h-32 object-cover rounded border"
-                            />
-                          </div>
-                        )}
+                        {/* Check-in section */}
+                        <div className="pt-1 border-t border-border">
+                          <p className="text-xs font-semibold text-blue-600">Check-In</p>
+                          <p className="text-xs text-foreground">{new Date(visit.timestamp).toLocaleString()}</p>
+                          {visit.notes && <p className="text-xs text-muted-foreground">{visit.notes}</p>}
+                          {visit.photo_url && (
+                            <img src={visit.photo_url} alt="Check-in proof" className="mt-1 w-full h-24 object-cover rounded border border-blue-200" />
+                          )}
+                        </div>
+                        {/* Check-out section */}
+                        <div className="pt-1 border-t border-border">
+                          {visit.check_out_time ? (
+                            <>
+                              <p className="text-xs font-semibold text-amber-600">Check-Out</p>
+                              <p className="text-xs text-foreground">{new Date(visit.check_out_time).toLocaleString()}</p>
+                              {visit.check_out_notes && <p className="text-xs text-muted-foreground">{visit.check_out_notes}</p>}
+                              {visit.check_out_photo_url && (
+                                <img src={visit.check_out_photo_url} alt="Check-out proof" className="mt-1 w-full h-24 object-cover rounded border border-amber-200" />
+                              )}
+                            </>
+                          ) : (
+                            <p className="text-xs text-amber-500 font-medium">⏳ Not checked out yet</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </MarkerPopup>
@@ -407,12 +410,22 @@ export default function SalesVisitsPage() {
                       <p className="text-[10px] text-muted-foreground">
                         {new Date(visit.timestamp).toLocaleTimeString()}
                       </p>
-                      {visit.photo_url && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <Camera className="w-3 h-3 text-blue-500" />
-                          <span className="text-[9px] text-blue-600">Photo attached</span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 mt-1">
+                        {visit.photo_url && (
+                          <div className="flex items-center gap-1">
+                            <Camera className="w-3 h-3 text-blue-500" />
+                            <span className="text-[9px] text-blue-600">In</span>
+                          </div>
+                        )}
+                        {visit.check_out_time ? (
+                          <div className="flex items-center gap-1">
+                            <Camera className="w-3 h-3 text-amber-500" />
+                            <span className="text-[9px] text-amber-600">Out</span>
+                          </div>
+                        ) : (
+                          <span className="text-[9px] text-amber-500">⏳ No check-out</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </button>
@@ -427,14 +440,23 @@ export default function SalesVisitsPage() {
           </div>
 
           <div className="p-4 bg-muted/50 border-t border-border">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Legend</p>
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <span className="text-muted-foreground">Verified Visit</span>
+                <span className="text-muted-foreground">Verified Check-In</span>
               </div>
               <div className="flex items-center gap-2 text-xs">
                 <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                <span className="text-muted-foreground">Unverified Visit</span>
+                <span className="text-muted-foreground">Unverified Check-In</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <Camera className="w-3 h-3 text-amber-500" />
+                <span className="text-muted-foreground">Check-Out Recorded</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-[10px] text-amber-500">⏳</span>
+                <span className="text-muted-foreground">Awaiting Check-Out</span>
               </div>
               <div className="flex items-center gap-2 text-xs">
                 <div className="w-3 h-3 bg-slate-400 rounded"></div>

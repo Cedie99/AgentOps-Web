@@ -10,15 +10,18 @@ import {
   FileText,
   MapPinned,
   Filter,
-  ChevronDown
+  ChevronDown,
+  List,
+  Map as MapIcon,
 } from 'lucide-react';
+import { Map as MapCN, MapMarker, MarkerContent, MarkerPopup, MapLine } from '@/components/ui/map';
 import Image from 'next/image';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, formatPHDateTime } from '@/lib/utils';
 
 interface StoreVisit {
   id: number;
@@ -57,6 +60,9 @@ const StoreVisits: React.FC = () => {
   const [dateFrom, setDateFrom] = useState<Date>();
   const [dateTo, setDateTo] = useState<Date>();
   const [expandedVisit, setExpandedVisit] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [routeVisits, setRouteVisits] = useState<any[]>([]);
+  const [loadingRoute, setLoadingRoute] = useState(false);
 
   useEffect(() => {
     fetchSalesAgents();
@@ -91,17 +97,6 @@ const StoreVisits: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Asia/Manila',
-    });
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -118,6 +113,23 @@ const StoreVisits: React.FC = () => {
 
   const handleViewMap = (lat: number, lng: number) => {
     window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+  };
+
+  const fetchRoute = async () => {
+    if (!selectedAgent || selectedAgent === 'all') return;
+    setLoadingRoute(true);
+    try {
+      const date = dateFrom
+        ? format(dateFrom, 'yyyy-MM-dd')
+        : format(new Date(), 'yyyy-MM-dd');
+      const res = await fetch(`/api/visit-route?user_id=${selectedAgent}&date=${date}`);
+      const json = await res.json();
+      setRouteVisits(json.visits || []);
+    } catch (error) {
+      console.error('Error fetching route:', error);
+    } finally {
+      setLoadingRoute(false);
+    }
   };
 
   return (
@@ -213,17 +225,120 @@ const StoreVisits: React.FC = () => {
         </div>
       </div>
 
+      {/* View Mode Toggle */}
+      <div className="flex items-center gap-2">
+        <Button
+          variant={viewMode === 'list' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setViewMode('list')}
+          className="gap-2"
+        >
+          <List className="h-4 w-4" /> List View
+        </Button>
+        <Button
+          variant={viewMode === 'map' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => { setViewMode('map'); fetchRoute(); }}
+          className="gap-2"
+        >
+          <MapIcon className="h-4 w-4" /> Map Route
+        </Button>
+        {viewMode === 'map' && !selectedAgent && (
+          <span className="text-xs text-amber-600 font-medium">Select an agent to view their route</span>
+        )}
+      </div>
+
+      {/* Map Route View */}
+      {viewMode === 'map' && (
+        <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm" style={{ height: 520 }}>
+          {loadingRoute ? (
+            <div className="flex items-center justify-center h-full bg-white">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600" />
+            </div>
+          ) : !selectedAgent || selectedAgent === 'all' ? (
+            <div className="flex flex-col items-center justify-center h-full bg-white gap-3">
+              <MapPin className="w-12 h-12 text-slate-300" />
+              <p className="text-slate-500 text-sm">Select a sales agent to view their visit route</p>
+            </div>
+          ) : routeVisits.filter(v => v.visit_lat && v.visit_lng).length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full bg-white gap-3">
+              <MapPin className="w-12 h-12 text-slate-300" />
+              <p className="text-slate-500 text-sm">No GPS visits found for this agent and date</p>
+            </div>
+          ) : (
+            <MapCN
+              center={[routeVisits.find(v => v.visit_lng)?.visit_lng, routeVisits.find(v => v.visit_lat)?.visit_lat]}
+              zoom={13}
+              className="w-full h-full"
+            >
+              {routeVisits.map((visit, index) =>
+                visit.visit_lat && visit.visit_lng ? (
+                  <MapMarker
+                    key={visit.id}
+                    longitude={visit.visit_lng}
+                    latitude={visit.visit_lat}
+                  >
+                    <MarkerContent>
+                      <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-sm shadow-lg border-2 border-white cursor-pointer">
+                        {index + 1}
+                      </div>
+                    </MarkerContent>
+                    <MarkerPopup>
+                      <div className="p-3 min-w-[210px] space-y-1">
+                        <p className="font-bold text-sm text-slate-900">{(visit.store as any)?.store_name || 'Unknown Store'}</p>
+                        <p className="text-xs text-slate-500">{(visit.store as any)?.city}</p>
+
+                        {/* Check-in */}
+                        <p className="text-xs pt-1"><span className="font-semibold text-emerald-700">In:</span> {formatPHDateTime(visit.timestamp)}</p>
+                        {visit.photo_url && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={visit.photo_url} alt="Check-in photo" className="rounded w-full h-16 object-cover border border-emerald-200" />
+                        )}
+
+                        {/* Check-out */}
+                        {visit.check_out_time ? (
+                          <>
+                            <p className="text-xs pt-1"><span className="font-semibold text-amber-700">Out:</span> {formatPHDateTime(visit.check_out_time)}</p>
+                            {(visit as any).check_out_photo_url && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={(visit as any).check_out_photo_url} alt="Check-out photo" className="rounded w-full h-16 object-cover border border-amber-200" />
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-xs text-amber-600 font-medium pt-1">Not checked out yet</p>
+                        )}
+                      </div>
+                    </MarkerPopup>
+                  </MapMarker>
+                ) : null
+              )}
+
+              {routeVisits.filter(v => v.visit_lat && v.visit_lng).length > 1 && (
+                <MapLine
+                  coordinates={routeVisits
+                    .filter(v => v.visit_lat && v.visit_lng)
+                    .map(v => [v.visit_lng, v.visit_lat])}
+                  color="#10b981"
+                  width={4}
+                  opacity={0.8}
+                />
+              )}
+            </MapCN>
+          )}
+        </div>
+      )}
+
       {/* Visits Grid */}
-      {loading ? (
+      {viewMode === 'list' && loading ? (
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
         </div>
-      ) : visits.length === 0 ? (
+      ) : viewMode === 'list' && visits.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-sm">
           <MapPin className="w-12 h-12 text-slate-300 mx-auto mb-4" />
           <p className="text-slate-500 text-sm">No store visits found</p>
         </div>
-      ) : (
+      ) : viewMode === 'list' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
           {visits.map((visit) => (
             <div
@@ -273,7 +388,7 @@ const StoreVisits: React.FC = () => {
                     <CalendarIcon className="w-3.5 h-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
                     <div className="min-w-0">
                       <p className="text-[10px] text-slate-500 uppercase tracking-wide">Date</p>
-                      <p className="font-semibold text-slate-900 text-[11px]">{formatDate(visit.visit_date)}</p>
+                      <p className="font-semibold text-slate-900 text-[11px]">{formatPHDateTime(visit.visit_date)}</p>
                     </div>
                   </div>
                 </div>
@@ -346,7 +461,7 @@ const StoreVisits: React.FC = () => {
             </div>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

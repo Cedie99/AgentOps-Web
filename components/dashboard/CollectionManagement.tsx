@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
+import { formatPHDate, formatPHTime } from '@/lib/utils'
 import {
   DollarSign,
   Package,
@@ -604,19 +605,10 @@ export default function CollectionManagement() {
                           <TableCell>
                             <div className="flex flex-col">
                               <span className="font-medium">
-                                {new Date(collection.collected_at).toLocaleDateString('en-PH', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  year: 'numeric',
-                                  timeZone: 'Asia/Manila',
-                                })}
+                                {formatPHDate(collection.collected_at)}
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                {new Date(collection.collected_at).toLocaleTimeString('en-PH', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                  timeZone: 'Asia/Manila',
-                                })}
+                                {formatPHTime(collection.collected_at)}
                               </span>
                             </div>
                           </TableCell>
