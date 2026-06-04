@@ -18,6 +18,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { formatPHRelativeDate } from '@/lib/utils'
 
 interface Store {
   id: number
@@ -121,22 +122,7 @@ export default function StoreActivityTimelinePage({
     }
   }
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-
-    if (date.toDateString() === today.toDateString()) {
-      return `Today at ${timeStr}`
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return `Yesterday at ${timeStr}`
-    } else {
-      return `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at ${timeStr}`
-    }
-  }
+  const formatDate = (dateString: string) => formatPHRelativeDate(dateString, true)
 
   const uniqueActivityTypes = Array.from(new Set(activities.map(a => a.activity_type)))
 

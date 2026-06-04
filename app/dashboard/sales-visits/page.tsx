@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useTheme } from 'next-themes'
-import { Calendar, User, MapPin, CheckCircle, XCircle, Camera, FileText, ChevronsUpDown, Check } from 'lucide-react'
+import { Calendar, User, MapPin, CheckCircle, XCircle, Camera, FileText, ChevronsUpDown, Check, Hourglass } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -11,7 +11,7 @@ import Image from 'next/image'
 import { Map as MapCN, MapMarker, MarkerContent, MarkerPopup, MapControls, MapRoute } from '@/components/ui/map'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { cn } from '@/lib/utils'
+import { cn, formatPHDateTime, formatPHTime } from '@/lib/utils'
 
 interface SalesAgent {
   id: number
@@ -65,6 +65,7 @@ interface Stats {
 
 export default function SalesVisitsPage() {
   const { theme } = useTheme()
+  const mapRef = useRef<any>(null)
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [selectedAgent, setSelectedAgent] = useState<number | null>(null)
   const [salesAgents, setSalesAgents] = useState<SalesAgent[]>([])
@@ -139,6 +140,27 @@ export default function SalesVisitsPage() {
     if (!selectedAgent) return visits
     return visits.filter(v => v.user_id === selectedAgent)
   }, [visits, selectedAgent])
+
+  // Recenter the map onto the visits once data loads. The <Map> reads `center`
+  // only at mount, so without this the map stays on the default Manila center
+  // and markers far away (e.g. Bulacan) render off-screen.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const pts = filteredVisits.filter(v => v.visit_lat && v.visit_lng)
+    if (pts.length === 0) return
+
+    if (pts.length === 1) {
+      map.flyTo({ center: [pts[0].visit_lng!, pts[0].visit_lat!], zoom: 14, duration: 800 })
+      return
+    }
+    const lngs = pts.map(p => p.visit_lng!)
+    const lats = pts.map(p => p.visit_lat!)
+    map.fitBounds(
+      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+      { padding: 80, maxZoom: 15, duration: 800 }
+    )
+  }, [filteredVisits])
 
   return (
     <div className="h-[calc(100vh-140px)] flex flex-col gap-4">
@@ -255,6 +277,7 @@ export default function SalesVisitsPage() {
         {/* Map */}
         <div className="flex-1 relative">
           <MapCN
+            ref={mapRef}
             center={mapCenter}
             zoom={13}
             theme={theme as 'light' | 'dark'}
@@ -285,12 +308,20 @@ export default function SalesVisitsPage() {
                   onClick={() => setSelectedVisit(visit)}
                 >
                   <MarkerContent>
-                    <div className={`w-10 h-10 rounded-full border-4 border-white shadow-lg flex items-center justify-center font-bold text-white ${
-                      visit.location_verified
-                        ? 'bg-blue-500'
-                        : 'bg-orange-500'
-                    }`}>
-                      {index + 1}
+                    <div className="relative">
+                      <div className={`w-10 h-10 rounded-full border-4 border-white shadow-lg flex items-center justify-center font-bold text-white ${
+                        visit.location_verified
+                          ? 'bg-blue-500'
+                          : 'bg-orange-500'
+                      }`}>
+                        {index + 1}
+                      </div>
+                      {/* Check-out status badge */}
+                      <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-amber-500 border-2 border-white shadow flex items-center justify-center">
+                        {visit.check_out_time
+                          ? <Camera className="w-2.5 h-2.5 text-white" />
+                          : <Hourglass className="w-2.5 h-2.5 text-white" />}
+                      </div>
                     </div>
                   </MarkerContent>
                   <MarkerPopup closeButton>
@@ -315,7 +346,7 @@ export default function SalesVisitsPage() {
                         {/* Check-in section */}
                         <div className="pt-1 border-t border-border">
                           <p className="text-xs font-semibold text-blue-600">Check-In</p>
-                          <p className="text-xs text-foreground">{new Date(visit.timestamp).toLocaleString()}</p>
+                          <p className="text-xs text-foreground">{formatPHDateTime(visit.timestamp)}</p>
                           {visit.notes && <p className="text-xs text-muted-foreground">{visit.notes}</p>}
                           {visit.photo_url && (
                             <img src={visit.photo_url} alt="Check-in proof" className="mt-1 w-full h-24 object-cover rounded border border-blue-200" />
@@ -326,7 +357,7 @@ export default function SalesVisitsPage() {
                           {visit.check_out_time ? (
                             <>
                               <p className="text-xs font-semibold text-amber-600">Check-Out</p>
-                              <p className="text-xs text-foreground">{new Date(visit.check_out_time).toLocaleString()}</p>
+                              <p className="text-xs text-foreground">{formatPHDateTime(visit.check_out_time)}</p>
                               {visit.check_out_notes && <p className="text-xs text-muted-foreground">{visit.check_out_notes}</p>}
                               {visit.check_out_photo_url && (
                                 <img src={visit.check_out_photo_url} alt="Check-out proof" className="mt-1 w-full h-24 object-cover rounded border border-amber-200" />
@@ -408,7 +439,7 @@ export default function SalesVisitsPage() {
                       <p className="text-xs font-semibold text-foreground truncate">{visit.store?.name || 'Unknown Store'}</p>
                       <p className="text-[10px] text-muted-foreground">{visit.user_name}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {new Date(visit.timestamp).toLocaleTimeString()}
+                        {formatPHTime(visit.timestamp)}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         {visit.photo_url && (
@@ -451,11 +482,15 @@ export default function SalesVisitsPage() {
                 <span className="text-muted-foreground">Unverified Check-In</span>
               </div>
               <div className="flex items-center gap-2 text-xs">
-                <Camera className="w-3 h-3 text-amber-500" />
+                <span className="w-3.5 h-3.5 rounded-full bg-amber-500 flex items-center justify-center">
+                  <Camera className="w-2 h-2 text-white" />
+                </span>
                 <span className="text-muted-foreground">Check-Out Recorded</span>
               </div>
               <div className="flex items-center gap-2 text-xs">
-                <span className="text-[10px] text-amber-500">⏳</span>
+                <span className="w-3.5 h-3.5 rounded-full bg-amber-500 flex items-center justify-center">
+                  <Hourglass className="w-2 h-2 text-white" />
+                </span>
                 <span className="text-muted-foreground">Awaiting Check-Out</span>
               </div>
               <div className="flex items-center gap-2 text-xs">

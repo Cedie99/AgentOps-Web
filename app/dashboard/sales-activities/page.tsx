@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ColumnDef,
@@ -30,6 +30,11 @@ import {
   MapPin,
   Phone,
   Building2,
+  List,
+  LayoutGrid,
+  Image as ImageIcon,
+  X,
+  Filter,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -50,6 +55,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { formatPHDateTime, formatPHRelativeDate } from '@/lib/utils'
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface AssignedAgent {
   id: number
@@ -70,60 +78,165 @@ interface StoreWithStats {
   last_activity_date: string | null
 }
 
+interface ActivityRecord {
+  id: number
+  activity_type: string
+  activity_date: string
+  proof_image_url: string | null
+  notes: string | null
+  gps_latitude: number | null
+  gps_longitude: number | null
+  client_name: string | null
+  client_contact: string | null
+  agent: { id: number; name: string; email: string } | null
+  store: { id: number; store_name: string; city: string | null; address: string | null } | null
+}
+
+interface SalesAgent {
+  id: number
+  name: string
+  email: string
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const ACTIVITY_LABELS: Record<string, string> = {
+  COLD_CALL: 'Cold Call',
+  COLD_EMAIL: 'Cold Email',
+  QUOTATION_PREP: 'Quotation Prep',
+  CLIENT_FOLLOWUP: 'Client Follow-up',
+  REVIVE_DORMANT: 'Revive Dormant',
+  SOCIAL_PROSPECTING: 'Social Prospecting',
+  EMAIL_INQUIRY_REPLY: 'Email Reply',
+  CALL_INQUIRY_REPLY: 'Call Reply',
+  WEEKLY_TODO_PREP: 'Weekly Todo Prep',
+  VEHICLE_RESERVATION: 'Vehicle Reservation',
+  SAMPLE_REQUEST: 'Sample Request',
+  MARKETING_MATERIAL_REQUEST: 'Marketing Material',
+  DESIGN_REQUEST: 'Design Request',
+  INTERNAL_PO: 'Internal PO',
+  SALES_MEETING: 'Sales Meeting',
+  WALKIN_CLIENT: 'Walk-in Client',
+  CLIENT_ISSUE: 'Client Issue',
+  DELIVERY_FOLLOWUP: 'Delivery Follow-up',
+  SAMPLE_FOLLOWUP: 'Sample Follow-up',
+  PRICING_REQUEST: 'Pricing Request',
+  STORE_VISIT: 'Store Visit',
+  OTHER: 'Other',
+}
+
+const ACTIVITY_TYPES = Object.keys(ACTIVITY_LABELS)
+
+const TYPE_COLORS: Record<string, string> = {
+  COLD_CALL: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  COLD_EMAIL: 'bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200',
+  CLIENT_FOLLOWUP: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
+  STORE_VISIT: 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200',
+  SALES_MEETING: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+  WALKIN_CLIENT: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+  CLIENT_ISSUE: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+}
+
 const statusColors = {
   PROSPECT: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
   NEW: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
   EXISTING: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
 }
 
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
 export default function SalesActivitiesPage() {
   const router = useRouter()
+
+  // tab
+  const [activeTab, setActiveTab] = useState<'stores' | 'feed'>('stores')
+
+  // ── By Store tab state ─────────────────────────────────────────────────────
   const [stores, setStores] = useState<StoreWithStats[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loadingStores, setLoadingStores] = useState(true)
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = useState({})
   const [globalFilter, setGlobalFilter] = useState('')
 
+  // ── All Activities tab state ───────────────────────────────────────────────
+  const [activities, setActivities] = useState<ActivityRecord[]>([])
+  const [loadingFeed, setLoadingFeed] = useState(false)
+  const [feedPage, setFeedPage] = useState(1)
+  const [feedTotal, setFeedTotal] = useState(0)
+  const [feedTotalPages, setFeedTotalPages] = useState(1)
+  const [salesAgents, setSalesAgents] = useState<SalesAgent[]>([])
+  const [filterAgent, setFilterAgent] = useState('')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
+  const [filterType, setFilterType] = useState('')
+  const [filterSearch, setFilterSearch] = useState('')
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+
+  // ── Fetchers ───────────────────────────────────────────────────────────────
+
+  useEffect(() => { fetchStores() }, [])
+
   useEffect(() => {
-    fetchStores()
-  }, [])
+    if (activeTab === 'feed') {
+      fetchAgents()
+      fetchFeed(1)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab])
 
   const fetchStores = async () => {
     try {
-      setLoading(true)
-      const response = await fetch('/api/sales-activities/stores')
-
-      if (response.ok) {
-        const data = await response.json()
+      setLoadingStores(true)
+      const res = await fetch('/api/sales-activities/stores')
+      if (res.ok) {
+        const data = await res.json()
         setStores(data.stores || [])
-      } else {
-        const errorData = await response.json()
-        console.error('Failed to fetch stores:', errorData)
       }
-    } catch (error) {
-      console.error('Error fetching stores:', error)
     } finally {
-      setLoading(false)
+      setLoadingStores(false)
     }
   }
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Never'
-    const date = new Date(dateString)
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today'
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday'
-    } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    }
+  const fetchAgents = async () => {
+    try {
+      const res = await fetch('/api/users?roles=SALES')
+      if (res.ok) {
+        const data = await res.json()
+        setSalesAgents(data.users || [])
+      }
+    } catch {}
   }
+
+  const fetchFeed = useCallback(async (page: number) => {
+    setLoadingFeed(true)
+    try {
+      const p = new URLSearchParams({ page: String(page) })
+      if (filterAgent && filterAgent !== 'all') p.set('agent_id', filterAgent)
+      if (filterDateFrom) p.set('date_from', filterDateFrom)
+      if (filterDateTo) p.set('date_to', filterDateTo)
+      if (filterType && filterType !== 'all') p.set('activity_type', filterType)
+      if (filterSearch) p.set('search', filterSearch)
+      const res = await fetch(`/api/sales-activities/feed?${p}`)
+      if (res.ok) {
+        const data = await res.json()
+        setActivities(data.activities || [])
+        setFeedTotal(data.total || 0)
+        setFeedTotalPages(data.totalPages || 1)
+        setFeedPage(page)
+      }
+    } finally {
+      setLoadingFeed(false)
+    }
+  }, [filterAgent, filterDateFrom, filterDateTo, filterType, filterSearch])
+
+  const handleFeedFilter = () => fetchFeed(1)
+
+  const formatDate = (dateString: string | null) =>
+    dateString ? formatPHRelativeDate(dateString) : 'Never'
+
+  // ── Store table columns ────────────────────────────────────────────────────
 
   const columns: ColumnDef<StoreWithStats>[] = [
     {
@@ -133,19 +246,15 @@ export default function SalesActivitiesPage() {
         const store = row.original
         return (
           <div className="flex items-start gap-3">
-            <div className="mt-1">
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-            </div>
+            <div className="mt-1"><Building2 className="h-4 w-4 text-muted-foreground" /></div>
             <div className="flex flex-col gap-1">
               <p className="font-semibold text-foreground">{store.store_name}</p>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <MapPin className="h-3 w-3" />
-                <span>{store.address}</span>
+                <MapPin className="h-3 w-3" /><span>{store.address}</span>
               </div>
               {store.contact_number && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Phone className="h-3 w-3" />
-                  <span>{store.contact_number}</span>
+                  <Phone className="h-3 w-3" /><span>{store.contact_number}</span>
                 </div>
               )}
             </div>
@@ -160,29 +269,24 @@ export default function SalesActivitiesPage() {
         const agents = row.original.assigned_agents
         return (
           <div className="flex flex-col gap-1">
-            {agents.length > 0 ? (
-              agents.map((agent) => (
-                <div key={agent.id} className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
-                    <User className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-foreground">{agent.name}</p>
-                    <p className="text-[10px] text-muted-foreground">{agent.email}</p>
-                  </div>
+            {agents.length > 0 ? agents.map((agent) => (
+              <div key={agent.id} className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
+                  <User className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
                 </div>
-              ))
-            ) : (
-              <p className="text-xs text-muted-foreground italic">No agent assigned</p>
-            )}
+                <div>
+                  <p className="text-xs font-medium text-foreground">{agent.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{agent.email}</p>
+                </div>
+              </div>
+            )) : <p className="text-xs text-muted-foreground italic">No agent assigned</p>}
           </div>
         )
       },
-      filterFn: (row, id, value) => {
-        const agents = row.original.assigned_agents
-        return agents.some(agent =>
-          agent.name.toLowerCase().includes(value.toLowerCase()) ||
-          agent.email.toLowerCase().includes(value.toLowerCase())
+      filterFn: (row, _id, value) => {
+        return row.original.assigned_agents.some(a =>
+          a.name.toLowerCase().includes(value.toLowerCase()) ||
+          a.email.toLowerCase().includes(value.toLowerCase())
         )
       },
     },
@@ -192,18 +296,13 @@ export default function SalesActivitiesPage() {
       cell: ({ row }) => {
         const status = row.getValue('customer_status') as string
         return (
-          <Badge
-            variant="secondary"
-            className={statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'}
-          >
+          <Badge variant="secondary"
+            className={statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800'}>
             {status}
           </Badge>
         )
       },
-      filterFn: (row, id, value) => {
-        if (value === 'all') return true
-        return row.getValue(id) === value
-      },
+      filterFn: (row, id, value) => value === 'all' ? true : row.getValue(id) === value,
     },
     {
       accessorKey: 'total_activities',
@@ -212,15 +311,9 @@ export default function SalesActivitiesPage() {
         const count = row.getValue('total_activities') as number
         return (
           <div className="flex items-center justify-center">
-            <div className={`
-              w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm
-              ${count > 0
-                ? 'bg-emerald-500 text-white'
-                : 'bg-gray-700 text-gray-400'
-              }
-            `}>
-              {count}
-            </div>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+              count > 0 ? 'bg-emerald-500 text-white' : 'bg-gray-700 text-gray-400'
+            }`}>{count}</div>
           </div>
         )
       },
@@ -241,20 +334,13 @@ export default function SalesActivitiesPage() {
     {
       id: 'actions',
       header: 'Actions',
-      cell: ({ row }) => {
-        const store = row.original
-        return (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => router.push(`/dashboard/sales-activities/timeline/${store.id}`)}
-            className="hover:bg-emerald-50 dark:hover:bg-emerald-950 hover:text-emerald-700 dark:hover:text-emerald-300 hover:border-emerald-300"
-          >
-            <Eye className="w-4 h-4 mr-1" />
-            View Timeline
-          </Button>
-        )
-      },
+      cell: ({ row }) => (
+        <Button size="sm" variant="outline"
+          onClick={() => router.push(`/dashboard/sales-activities/timeline/${row.original.id}`)}
+          className="hover:bg-emerald-50 dark:hover:bg-emerald-950 hover:text-emerald-700 hover:border-emerald-300">
+          <Eye className="w-4 h-4 mr-1" />View Timeline
+        </Button>
+      ),
     },
   ]
 
@@ -271,312 +357,381 @@ export default function SalesActivitiesPage() {
     onRowSelectionChange: setRowSelection,
     onGlobalFilterChange: setGlobalFilter,
     globalFilterFn: 'includesString',
-    state: {
-      sorting,
-      columnFilters,
-      columnVisibility,
-      rowSelection,
-      globalFilter,
-    },
+    state: { sorting, columnFilters, columnVisibility, rowSelection, globalFilter },
   })
 
-  // Calculate summary stats
   const totalStores = stores.length
   const prospectStores = stores.filter(s => s.customer_status === 'PROSPECT').length
   const newStores = stores.filter(s => s.customer_status === 'NEW').length
   const existingStores = stores.filter(s => s.customer_status === 'EXISTING').length
 
-  if (loading) {
-    return (
-      <div className="h-[calc(100vh-140px)] flex flex-col gap-6">
-        {/* Header Skeleton */}
-        <div>
-          <div className="h-9 w-64 bg-muted animate-pulse rounded mb-2" />
-          <div className="h-4 w-96 bg-muted animate-pulse rounded" />
-        </div>
-
-        {/* Stats Cards Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="h-3 w-20 bg-muted animate-pulse rounded mb-2" />
-                  <div className="h-8 w-16 bg-muted animate-pulse rounded" />
-                </div>
-                <div className="h-10 w-10 bg-muted animate-pulse rounded" />
-              </div>
-            </Card>
-          ))}
-        </div>
-
-        {/* Filters Skeleton */}
-        <Card className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="h-10 flex-1 max-w-sm bg-muted animate-pulse rounded" />
-            <div className="h-10 w-[180px] bg-muted animate-pulse rounded" />
-          </div>
-        </Card>
-
-        {/* Table Skeleton */}
-        <Card className="flex-1">
-          <CardContent className="p-6">
-            <div className="rounded-md border">
-              <div className="p-4">
-                {/* Table header skeleton */}
-                <div className="flex gap-4 mb-4 pb-3 border-b">
-                  <div className="h-4 w-32 bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-24 bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-28 bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-32 bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-24 bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-20 bg-muted animate-pulse rounded" />
-                </div>
-                {/* Table rows skeleton */}
-                <div className="space-y-3">
-                  {[1, 2, 3, 4, 5, 6].map((i) => (
-                    <div key={i} className="flex gap-4 items-center py-2">
-                      <div className="h-12 w-full bg-muted animate-pulse rounded" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Pagination Skeleton */}
-        <div className="flex items-center justify-between px-2">
-          <div className="h-4 w-48 bg-muted animate-pulse rounded" />
-          <div className="flex gap-2">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-8 w-8 bg-muted animate-pulse rounded" />
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="h-[calc(100vh-140px)] flex flex-col gap-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground tracking-tight">Sales Activities</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Track all sales agent activities across assigned stores
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">Sales Activities</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Track all sales agent activities across assigned stores
+          </p>
+        </div>
+        {/* Tab toggle */}
+        <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+          <Button
+            variant={activeTab === 'stores' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setActiveTab('stores')}
+            className="gap-2"
+          >
+            <LayoutGrid className="h-4 w-4" /> By Store
+          </Button>
+          <Button
+            variant={activeTab === 'feed' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setActiveTab('feed')}
+            className="gap-2"
+          >
+            <List className="h-4 w-4" /> All Activities
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4 bg-[#1a1a1a] border-green-500/50">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-400 mb-2">Total Stores</p>
-              <p className="text-3xl font-bold text-green-500">{totalStores}</p>
-            </div>
+            <div><p className="text-xs text-gray-400 mb-2">Total Stores</p>
+              <p className="text-3xl font-bold text-green-500">{totalStores}</p></div>
             <Store className="h-5 w-5 text-green-500" />
           </div>
         </Card>
-
         <Card className="p-4 bg-[#1a1a1a] border-yellow-500/50">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-400 mb-2">Prospect</p>
-              <p className="text-3xl font-bold text-yellow-500">{prospectStores}</p>
-            </div>
+            <div><p className="text-xs text-gray-400 mb-2">Prospect</p>
+              <p className="text-3xl font-bold text-yellow-500">{prospectStores}</p></div>
             <TrendingUp className="h-5 w-5 text-yellow-500" />
           </div>
         </Card>
-
         <Card className="p-4 bg-[#1a1a1a] border-blue-500/50">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-400 mb-2">New</p>
-              <p className="text-3xl font-bold text-blue-500">{newStores}</p>
-            </div>
+            <div><p className="text-xs text-gray-400 mb-2">New</p>
+              <p className="text-3xl font-bold text-blue-500">{newStores}</p></div>
             <UserPlus className="h-5 w-5 text-blue-500" />
           </div>
         </Card>
-
         <Card className="p-4 bg-[#1a1a1a] border-purple-500/50">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-400 mb-2">Existing</p>
-              <p className="text-3xl font-bold text-purple-500">{existingStores}</p>
-            </div>
+            <div><p className="text-xs text-gray-400 mb-2">Existing</p>
+              <p className="text-3xl font-bold text-purple-500">{existingStores}</p></div>
             <Users className="h-5 w-5 text-purple-500" />
           </div>
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1">
-            <Input
-              placeholder="Search stores, agents, or addresses..."
-              value={globalFilter ?? ''}
-              onChange={(event) => setGlobalFilter(event.target.value)}
-              className="max-w-sm"
-            />
-          </div>
+      {/* ── By Store Tab ───────────────────────────────────────────────────── */}
+      {activeTab === 'stores' && (
+        <>
+          <Card className="p-4">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <Input placeholder="Search stores, agents, or addresses..."
+                  value={globalFilter ?? ''}
+                  onChange={(e) => setGlobalFilter(e.target.value)}
+                  className="max-w-sm" />
+              </div>
+              <Select
+                value={(table.getColumn('customer_status')?.getFilterValue() as string) ?? 'all'}
+                onValueChange={(value) =>
+                  table.getColumn('customer_status')?.setFilterValue(value === 'all' ? '' : value)
+                }
+              >
+                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Filter by status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="PROSPECT">Prospect ({prospectStores})</SelectItem>
+                  <SelectItem value="NEW">New ({newStores})</SelectItem>
+                  <SelectItem value="EXISTING">Existing ({existingStores})</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </Card>
 
-          {/* Status Filter */}
-          <Select
-            value={(table.getColumn('customer_status')?.getFilterValue() as string) ?? 'all'}
-            onValueChange={(value) =>
-              table.getColumn('customer_status')?.setFilterValue(value === 'all' ? '' : value)
-            }
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="PROSPECT">Prospect ({prospectStores})</SelectItem>
-              <SelectItem value="NEW">New ({newStores})</SelectItem>
-              <SelectItem value="EXISTING">Existing ({existingStores})</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </Card>
-
-      {/* Table */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="rounded-md border">
-            <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600"></div>
-                      <p className="text-sm text-muted-foreground">Loading stores...</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && 'selected'}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
+          <Card>
+            <CardContent className="p-6">
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    {table.getHeaderGroups().map((hg) => (
+                      <TableRow key={hg.id}>
+                        {hg.headers.map((h) => (
+                          <TableHead key={h.id}>
+                            {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
+                          </TableHead>
+                        ))}
+                      </TableRow>
                     ))}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-24 text-center"
-                  >
-                    <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-sm font-medium text-foreground">No stores found</p>
-                    <p className="text-xs text-muted-foreground">Try adjusting your search or filters</p>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {loadingStores ? (
+                      <TableRow>
+                        <TableCell colSpan={columns.length} className="h-24 text-center">
+                          <div className="flex flex-col items-center gap-3">
+                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600" />
+                            <p className="text-sm text-muted-foreground">Loading stores...</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : table.getRowModel().rows?.length ? (
+                      table.getRowModel().rows.map((row) => (
+                        <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}>
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={columns.length} className="h-24 text-center">
+                          <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                          <p className="text-sm font-medium text-foreground">No stores found</p>
+                          <p className="text-xs text-muted-foreground">Try adjusting your search or filters</p>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex items-center justify-between px-2 py-4">
+                <div className="text-sm text-muted-foreground">
+                  {table.getFilteredRowModel().rows.length} store(s) total
+                </div>
+                <div className="flex items-center space-x-6">
+                  <div className="flex items-center space-x-2">
+                    <p className="text-sm font-medium">Rows per page</p>
+                    <Select
+                      value={`${table.getState().pagination.pageSize}`}
+                      onValueChange={(v) => table.setPageSize(Number(v))}
+                    >
+                      <SelectTrigger className="h-8 w-[70px]">
+                        <SelectValue placeholder={table.getState().pagination.pageSize} />
+                      </SelectTrigger>
+                      <SelectContent side="top">
+                        {[10, 20, 30, 40, 50].map((s) => (
+                          <SelectItem key={s} value={`${s}`}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="text-sm font-medium">
+                      Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button variant="outline" className="h-8 w-8 p-0" onClick={() => table.setPageIndex(0)} disabled={!table.getCanPreviousPage()}><ChevronsLeft className="h-4 w-4" /></Button>
+                      <Button variant="outline" className="h-8 w-8 p-0" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}><ChevronLeft className="h-4 w-4" /></Button>
+                      <Button variant="outline" className="h-8 w-8 p-0" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}><ChevronRight className="h-4 w-4" /></Button>
+                      <Button variant="outline" className="h-8 w-8 p-0" onClick={() => table.setPageIndex(table.getPageCount() - 1)} disabled={!table.getCanNextPage()}><ChevronsRight className="h-4 w-4" /></Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* ── All Activities Tab ─────────────────────────────────────────────── */}
+      {activeTab === 'feed' && (
+        <>
+          {/* Filters */}
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-semibold text-foreground">Filters</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+              {/* Agent */}
+              <Select value={filterAgent} onValueChange={setFilterAgent}>
+                <SelectTrigger><SelectValue placeholder="All Agents" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Agents</SelectItem>
+                  {salesAgents.map((a) => (
+                    <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {/* Activity type */}
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger><SelectValue placeholder="All Types" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {ACTIVITY_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{ACTIVITY_LABELS[t]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {/* Date from */}
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)}
+                  className="pl-9" placeholder="From date" />
+              </div>
+              {/* Date to */}
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)}
+                  className="pl-9" placeholder="To date" />
+              </div>
+              {/* Search + Apply */}
+              <div className="flex gap-2">
+                <Input placeholder="Search client or notes..." value={filterSearch}
+                  onChange={(e) => setFilterSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleFeedFilter()} />
+                <Button onClick={handleFeedFilter} size="sm" className="shrink-0">Apply</Button>
+              </div>
+            </div>
+          </Card>
+
+          {/* Feed count */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">{feedTotal} activit{feedTotal === 1 ? 'y' : 'ies'} found</p>
           </div>
+
+          {/* Activity cards */}
+          {loadingFeed ? (
+            <div className="flex items-center justify-center h-48">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600" />
+            </div>
+          ) : activities.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 gap-3">
+              <Activity className="h-12 w-12 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">No activities found</p>
+              <p className="text-xs text-muted-foreground">Try adjusting your filters</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto pb-2">
+              {activities.map((act) => (
+                <Card key={act.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                  {/* Proof image */}
+                  {act.proof_image_url ? (
+                    <button
+                      onClick={() => setLightboxUrl(act.proof_image_url!)}
+                      className="w-full h-36 bg-muted overflow-hidden block"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={act.proof_image_url} alt="Proof" className="w-full h-full object-cover hover:scale-105 transition-transform" />
+                    </button>
+                  ) : (
+                    <div className="w-full h-36 bg-muted flex items-center justify-center">
+                      <ImageIcon className="h-10 w-10 text-muted-foreground/30" />
+                    </div>
+                  )}
+
+                  <CardContent className="p-3 space-y-2">
+                    {/* Type badge + date */}
+                    <div className="flex items-start justify-between gap-2">
+                      <Badge variant="secondary"
+                        className={TYPE_COLORS[act.activity_type] || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'}>
+                        {ACTIVITY_LABELS[act.activity_type] || act.activity_type}
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {formatPHDateTime(act.activity_date)}
+                      </span>
+                    </div>
+
+                    {/* Store */}
+                    {act.store && (
+                      <div className="flex items-center gap-1.5 text-xs text-foreground">
+                        <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <span className="truncate font-medium">{act.store.store_name}</span>
+                        {act.store.city && <span className="text-muted-foreground shrink-0">· {act.store.city}</span>}
+                      </div>
+                    )}
+
+                    {/* Agent */}
+                    {act.agent && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <User className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{act.agent.name}</span>
+                      </div>
+                    )}
+
+                    {/* Client */}
+                    {act.client_name && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Phone className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{act.client_name}{act.client_contact ? ` · ${act.client_contact}` : ''}</span>
+                      </div>
+                    )}
+
+                    {/* Notes */}
+                    {act.notes && (
+                      <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                        {act.notes}
+                      </p>
+                    )}
+
+                    {/* GPS */}
+                    {act.gps_latitude && act.gps_longitude && (
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        <span>{act.gps_latitude.toFixed(4)}, {act.gps_longitude.toFixed(4)}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
 
           {/* Pagination */}
-          <div className="flex items-center justify-between px-2 py-4">
-            <div className="text-sm text-muted-foreground">
-              {table.getFilteredRowModel().rows.length} store(s) total
+          {feedTotalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <Button variant="outline" size="sm" onClick={() => fetchFeed(1)} disabled={feedPage === 1}>
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => fetchFeed(feedPage - 1)} disabled={feedPage === 1}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground px-2">
+                Page {feedPage} of {feedTotalPages}
+              </span>
+              <Button variant="outline" size="sm" onClick={() => fetchFeed(feedPage + 1)} disabled={feedPage >= feedTotalPages}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => fetchFeed(feedTotalPages)} disabled={feedPage >= feedTotalPages}>
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
             </div>
-            <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-2">
-                <p className="text-sm font-medium">Rows per page</p>
-                <Select
-                  value={`${table.getState().pagination.pageSize}`}
-                  onValueChange={(value) => {
-                    table.setPageSize(Number(value))
-                  }}
-                >
-                  <SelectTrigger className="h-8 w-[70px]">
-                    <SelectValue placeholder={table.getState().pagination.pageSize} />
-                  </SelectTrigger>
-                  <SelectContent side="top">
-                    {[10, 20, 30, 40, 50].map((pageSize) => (
-                      <SelectItem key={pageSize} value={`${pageSize}`}>
-                        {pageSize}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="text-sm font-medium">
-                  Page {table.getState().pagination.pageIndex + 1} of{' '}
-                  {table.getPageCount()}
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    className="h-8 w-8 p-0"
-                    onClick={() => table.setPageIndex(0)}
-                    disabled={!table.getCanPreviousPage()}
-                  >
-                    <ChevronsLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-8 w-8 p-0"
-                    onClick={() => table.previousPage()}
-                    disabled={!table.getCanPreviousPage()}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-8 w-8 p-0"
-                    onClick={() => table.nextPage()}
-                    disabled={!table.getCanNextPage()}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-8 w-8 p-0"
-                    onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                    disabled={!table.getCanNextPage()}
-                  >
-                    <ChevronsRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          )}
+        </>
+      )}
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/80"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <X className="h-6 w-6" />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxUrl}
+            alt="Proof"
+            className="max-w-full max-h-full rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }

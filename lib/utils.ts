@@ -45,3 +45,15 @@ export function formatPHDate(input: DateInput): string {
     timeZone: 'Asia/Manila',
   });
 }
+
+// "Today" / "Yesterday" / "Jun 4, 2026" (PH timezone). With withTime, appends " at 10:30 AM".
+export function formatPHRelativeDate(input: DateInput, withTime = false): string {
+  const date = parseSupabaseDate(input);
+  if (!date || isNaN(date.getTime())) return 'N/A';
+  const keyOf = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - 86_400_000);
+  const k = keyOf(date);
+  const label = k === keyOf(now) ? 'Today' : k === keyOf(yesterday) ? 'Yesterday' : formatPHDate(date);
+  return withTime ? `${label} at ${formatPHTime(date)}` : label;
+}

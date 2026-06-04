@@ -30,7 +30,8 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0]
     const salesAgentId = searchParams.get('sales_agent_id')
 
-    // Query via Supabase to get all columns including check_out_time, check_out_photo_url
+    // Query visit_logs. NOTE: visit_logs.store_id has no FK to surveys, so we
+    // cannot use a PostgREST embed — we join to surveys manually below.
     let query = supabase
       .from('visit_logs')
       .select(`
@@ -51,21 +52,7 @@ export async function GET(request: NextRequest) {
         check_out_photo_url,
         check_out_lat,
         check_out_lng,
-        check_out_notes,
-        store:surveys!store_id (
-          id,
-          store_name,
-          address,
-          city,
-          gps_latitude,
-          gps_longitude,
-          customer_status
-        ),
-        user:users!user_id (
-          id,
-          name,
-          email
-        )
+        check_out_notes
       `)
       .eq('user_role', 'SALES')
       .gte('timestamp', `${date}T00:00:00Z`)
@@ -80,21 +67,35 @@ export async function GET(request: NextRequest) {
 
     if (error) throw new Error(error.message)
 
+    // Manual join to surveys (store_id → surveys.id)
+    const storeIds = [...new Set((rows ?? []).map((r: any) => r.store_id).filter(Boolean))]
+    let storeMap: Record<number, any> = {}
+    if (storeIds.length) {
+      const { data: stores } = await supabase
+        .from('surveys')
+        .select('id, store_name, address, city, gps_latitude, gps_longitude, customer_status')
+        .in('id', storeIds)
+      storeMap = Object.fromEntries((stores ?? []).map((s: any) => [s.id, s]))
+    }
+
     // Normalise store shape to match what the page expects
-    const visits = (rows || []).map((v: any) => ({
-      ...v,
-      store: v.store
-        ? {
-            id: v.store.id,
-            name: v.store.store_name,
-            address: v.store.address,
-            lat: v.store.gps_latitude,
-            lng: v.store.gps_longitude,
-            status: v.store.customer_status,
-            customer_type: v.store.customer_status,
-          }
-        : null,
-    }))
+    const visits = (rows || []).map((v: any) => {
+      const s = storeMap[v.store_id]
+      return {
+        ...v,
+        store: s
+          ? {
+              id: s.id,
+              name: s.store_name,
+              address: s.address,
+              lat: s.gps_latitude,
+              lng: s.gps_longitude,
+              status: s.customer_status,
+              customer_type: s.customer_status,
+            }
+          : null,
+      }
+    })
 
     // Statistics
     const stats = {
