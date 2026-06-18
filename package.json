@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:seed": "tsx prisma/seed.ts",
+    "db:setup": "tsx scripts/db-setup.ts",
+    "db:import": "tsx scripts/import-data.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {
